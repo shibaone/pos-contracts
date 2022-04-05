@@ -49,6 +49,7 @@ const StakeManagerTest = artifacts.require('StakeManagerTest')
 const ExitNFT = artifacts.require('ExitNFT')
 const MaticWeth = artifacts.require('MaticWETH')
 const TestToken = artifacts.require('TestToken')
+const BoneToken = artifacts.require('BoneToken')
 const RootERC721 = artifacts.require('RootERC721')
 
 const StakeManagerExtension = artifacts.require('StakeManagerExtension')
@@ -176,7 +177,7 @@ module.exports = async function(deployer, network, accounts) {
     await deployer.deploy(Registry, GovernanceProxy.address)
     await deployer.deploy(ValidatorShareFactory)
     await deployer.deploy(ValidatorShare)
-    const maticToken = await deployer.deploy(TestToken, 'MATIC', 'MATIC')
+    const boneToken = await deployer.deploy(BoneToken, 'BONE', 'BONE')
     await deployer.deploy(TestToken, 'Test ERC20', 'TEST20')
     await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
     await deployer.deploy(StakingInfo, Registry.address)
@@ -223,7 +224,7 @@ module.exports = async function(deployer, network, accounts) {
       stakeManager.contract.methods.initialize(
         Registry.address,
         RootChainProxy.address,
-        maticToken.address,
+        boneToken.address,
         StakingNFT.address,
         StakingInfo.address,
         ValidatorShareFactory.address,
@@ -295,7 +296,7 @@ module.exports = async function(deployer, network, accounts) {
           TransferWithSigPredicate: TransferWithSigPredicate.address
         },
         tokens: {
-          MaticToken: maticToken.address,
+          BoneToken: BoneToken.address,
           MaticWeth: MaticWeth.address,
           TestToken: TestToken.address,
           RootERC721: RootERC721.address

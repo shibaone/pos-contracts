@@ -29,8 +29,8 @@ module.exports = async function(deployer, network, accounts) {
     await governance.update(
       registry.address,
       registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.MaticToken,
-        contractAddresses.child.tokens.MaticToken,
+        contractAddresses.root.tokens.BoneToken,
+        contractAddresses.child.tokens.BoneToken,
         false /* isERC721 */
       ).encodeABI()
     )

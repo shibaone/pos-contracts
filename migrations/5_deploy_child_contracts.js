@@ -52,15 +52,15 @@ module.exports = async function(deployer, network, accounts) {
     const maticOwner = await maticToken.owner()
     if (maticOwner === '0x0000000000000000000000000000000000000000') {
       // matic contract at 0x1010 can only be initialized once, after the bor image starts to run
-      await maticToken.initialize(ChildChain.address, contractAddresses.root.tokens.MaticToken)
+      await maticToken.initialize(ChildChain.address, contractAddresses.root.tokens.BoneToken)
     }
-    await childChain.mapToken(contractAddresses.root.tokens.MaticToken, '0x0000000000000000000000000000000000001010', false)
+    await childChain.mapToken(contractAddresses.root.tokens.BoneToken, '0x0000000000000000000000000000000000001010', false)
 
     contractAddresses.child = {
       ChildChain: ChildChain.address,
       tokens: {
         MaticWeth: MaticWeth.logs.find(log => log.event === 'NewToken').args.token,
-        MaticToken: '0x0000000000000000000000000000000000001010',
+        BoneToken: '0x0000000000000000000000000000000000001010',
         TestToken: TestToken.logs.find(log => log.event === 'NewToken').args.token,
         RootERC721: RootERC721.logs.find(log => log.event === 'NewToken').args.token
       }
