@@ -6,8 +6,8 @@ const MNEMONIC = process.env.MNEMONIC || 'clock radar mass judge dismiss just in
 const API_KEY = process.env.API_KEY
 const ETH_NETWORK = process.env.ETH_NETWORK
 
-const url = `https://${ETH_NETWORK}.infura.io/v3/${API_KEY}`
-// const url = `http://localhost:9545`
+// const url = `https://${ETH_NETWORK}.infura.io/v3/${API_KEY}`
+const url = `http://localhost:9545`
 
 const wallet = new HDWalletProvider(MNEMONIC, url)
 

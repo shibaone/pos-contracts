@@ -6,7 +6,7 @@ const Registry = artifacts.require('Registry')
 const ethUtils = require('ethereumjs-util')
 const EthDeployer = require('moonwalker').default
 
-let id = 41 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
+let id = 38 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
 
 async function deploy() {
   const qClient = await EthDeployer.getQueue()
@@ -110,21 +110,21 @@ async function deploy() {
     )
   )
 
-  await deployer.deploy(
-    tx('Governance', 'update',
-      [
-        'Registry',
-        {
-          value:
-            registry.contract.methods.updateContractMap(
-              ethUtils.bufferToHex(ethUtils.keccak256('wethToken')),
-              getAddressForContract('MaticWETH')
-            ).encodeABI()
-        }
-      ],
-      'GovernanceProxy'
-    )
-  )
+  // await deployer.deploy(
+  //   tx('Governance', 'update',
+  //     [
+  //       'Registry',
+  //       {
+  //         value:
+  //           registry.contract.methods.updateContractMap(
+  //             ethUtils.bufferToHex(ethUtils.keccak256('wethToken')),
+  //             getAddressForContract('MaticWETH')
+  //           ).encodeABI()
+  //       }
+  //     ],
+  //     'GovernanceProxy'
+  //   )
+  // )
 
   await deployer.deploy(
     tx('Governance', 'update',
@@ -208,7 +208,7 @@ async function deploy() {
   await deployer.deploy(tx('StakeManager', 'initialize', [
     'Registry',
     'RootChainProxy',
-    'BoneToken', // Was 'TestToken'
+    '0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007', // bone token address on sepolia
     'StakingNFT',
     'StakingInfo',
     'ValidatorShareFactory',
@@ -216,7 +216,8 @@ async function deploy() {
     { value: process.env.FROM }, // owner
     'StakeManagerExtension'
   ],
-  'StakeManagerProxy'
+  'StakeManagerProxy',
+  'ValidatorRegistry'
   ))
 
   await deployer.deploy(tx('EventsHub', 'initialize', [

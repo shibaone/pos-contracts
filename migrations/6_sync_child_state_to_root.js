@@ -17,14 +17,14 @@ module.exports = async function(deployer, network, accounts) {
     const registry = await Registry.at(contractAddresses.root.Registry)
     const governance = await Governance.at(contractAddresses.root.GovernanceProxy)
 
-    await governance.update(
-      registry.address,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.MaticWeth,
-        contractAddresses.child.tokens.MaticWeth,
-        false /* isERC721 */
-      ).encodeABI()
-    )
+    // await governance.update(
+    //   registry.address,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.MaticWeth,
+    //     contractAddresses.child.tokens.MaticWeth,
+    //     false /* isERC721 */
+    //   ).encodeABI()
+    // )
 
     await governance.update(
       registry.address,
@@ -35,23 +35,23 @@ module.exports = async function(deployer, network, accounts) {
       ).encodeABI()
     )
 
-    await governance.update(
-      registry.address,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.TestToken,
-        contractAddresses.child.tokens.TestToken,
-        false /* isERC721 */
-      ).encodeABI()
-    )
+    // await governance.update(
+    //   registry.address,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.TestToken,
+    //     contractAddresses.child.tokens.TestToken,
+    //     false /* isERC721 */
+    //   ).encodeABI()
+    // )
 
-    await governance.update(
-      registry.address,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.RootERC721,
-        contractAddresses.child.tokens.RootERC721,
-        true /* isERC721 */
-      ).encodeABI()
-    )
+    // await governance.update(
+    //   registry.address,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.RootERC721,
+    //     contractAddresses.child.tokens.RootERC721,
+    //     true /* isERC721 */
+    //   ).encodeABI()
+    // )
 
     await governance.update(
       registry.address,
