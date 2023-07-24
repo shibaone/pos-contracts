@@ -214,10 +214,10 @@ async function deploy() {
     'ValidatorShareFactory',
     'GovernanceProxy',
     { value: process.env.FROM }, // owner
-    'StakeManagerExtension'
+    'StakeManagerExtension',
+    'ValidatorRegistry'
   ],
-  'StakeManagerProxy',
-  'ValidatorRegistry'
+  'StakeManagerProxy'
   ))
 
   await deployer.deploy(tx('EventsHub', 'initialize', [

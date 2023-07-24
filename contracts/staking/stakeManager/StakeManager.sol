@@ -66,8 +66,8 @@ contract StakeManager is
         _;
     }
 
-    modifier onlyValidator(address _user) {
-        if(validatorRegistry.validationEnabled()){
+    modifier onlyWhitelistedValidator(address _user) {
+        if(validatorRegistry.validatorWhitelistingEnable()){
             require(validatorRegistry.validators(_user), "Validator is not whitelisted");
         }
         _;
@@ -467,7 +467,7 @@ contract StakeManager is
         uint256 heimdallFee,
         bool acceptDelegation,
         bytes memory signerPubkey
-    ) public onlyWhenUnlocked onlyValidator(user) {
+    ) public onlyWhenUnlocked onlyWhitelistedValidator(user) {
         require(currentValidatorSetSize() < validatorThreshold, "no more slots");
         require(amount >= minDeposit, "not enough deposit");
         _transferAndTopUp(user, msg.sender, heimdallFee, amount);

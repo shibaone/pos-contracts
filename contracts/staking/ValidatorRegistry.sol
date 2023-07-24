@@ -4,20 +4,20 @@ import {Ownable} from "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
 contract ValidatorRegistry is Ownable {
     mapping(address => bool) public validators;
-    bool public validationEnabled;
+    bool public validatorWhitelistingEnable;
 
-    event ValidatorUpdated(address indexed validator, bool isWhitelisted);
+    event WhitelistUpdated(address indexed validator, bool isWhitelisted);
 
     constructor() public {
-        validationEnabled = true;
+        validatorWhitelistingEnable = true;
     }
 
     function updateValidatorsPermission(address _validator, bool _isWhitelisted) external onlyOwner {
         validators[_validator] = _isWhitelisted;
-        emit ValidatorUpdated(_validator, _isWhitelisted);
+        emit WhitelistUpdated(_validator, _isWhitelisted);
     }
 
-    function toggleValidation(bool _validationEnabled) external onlyOwner {
-        validationEnabled = _validationEnabled;
+    function toggleWhitelisting(bool _validatorWhitelistingEnable) external onlyOwner {
+        validatorWhitelistingEnable = _validatorWhitelistingEnable;
     }
 }
