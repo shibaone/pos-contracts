@@ -233,8 +233,7 @@ module.exports = async function(deployer, network, accounts) {
         ValidatorShareFactory.address,
         GovernanceProxy.address,
         accounts[0],
-        auctionImpl.address,
-        validatorRegistry.address
+        auctionImpl.address
       ).encodeABI()
     )
 
