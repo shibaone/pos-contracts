@@ -208,14 +208,13 @@ async function deploy() {
   await deployer.deploy(tx('StakeManager', 'initialize', [
     'Registry',
     'RootChainProxy',
-    '0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007', // bone token address on sepolia
+    'boneToken', // bone token address on sepolia
     'StakingNFT',
     'StakingInfo',
     'ValidatorShareFactory',
     'GovernanceProxy',
     { value: process.env.FROM }, // owner
-    'StakeManagerExtension',
-    'ValidatorRegistry'
+    'StakeManagerExtension'
   ],
   'StakeManagerProxy'
   ))

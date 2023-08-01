@@ -16,8 +16,8 @@ async function consume() {
   const worker = new EthDeployer.Worker(
     wallet, q, {
       from: process.env.FROM || '0x9fB29AAc15b9A4B7F17c3385939b007540f4d791',
-      gas: 10000000,
-      gasPrice: '45000000000' // 45 gwei
+      // gas: 10000000,
+      // gasPrice: '45000000000' // 45 gwei
     },
     `${process.cwd()}/build`,
     0 // blockConfirmation

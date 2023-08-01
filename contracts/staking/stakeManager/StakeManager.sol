@@ -4,7 +4,6 @@ import {IERC20} from "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import {Math} from "openzeppelin-solidity/contracts/math/Math.sol";
 import {SafeMath} from "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import {RLPReader} from "solidity-rlp/contracts/RLPReader.sol";
-
 import {BytesLib} from "../../common/lib/BytesLib.sol";
 import {ECVerify} from "../../common/lib/ECVerify.sol";
 import {Merkle} from "../../common/lib/Merkle.sol";
@@ -22,7 +21,7 @@ import {StakeManagerStorageExtension} from "./StakeManagerStorageExtension.sol";
 import {IGovernance} from "../../common/governance/IGovernance.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {StakeManagerExtension} from "./StakeManagerExtension.sol";
-import {ValidatorRegistry} from "../ValidatorRegistry.sol";
+// import {IValidatorRegistry} from "../IValidatorRegistry.sol";
 
 contract StakeManager is
     StakeManagerStorage,
@@ -36,7 +35,7 @@ contract StakeManager is
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
 
-    ValidatorRegistry public validatorRegistry;
+    // IValidatorRegistry public validatorRegistry;
 
     struct UnsignedValidatorsContext {
         uint256 unsignedValidatorIndex;
@@ -66,13 +65,6 @@ contract StakeManager is
         _;
     }
 
-    modifier onlyWhitelistedValidator(address _user) {
-        if(validatorRegistry.validatorWhitelistingEnable()){
-            require(validatorRegistry.validators(_user), "Validator is not whitelisted");
-        }
-        _;
-    }
-
     function _assertDelegation(uint256 validatorId) private view {
         require(validators[validatorId].contractAddress == msg.sender, "Invalid contract address");
     }
@@ -88,8 +80,8 @@ contract StakeManager is
         address _validatorShareFactory,
         address _governance,
         address _owner,
-        address _extensionCode,
-        address _validatorRegistry
+        address _extensionCode
+        // address _validatorRegistry
     ) external initializer {
         require(isContract(_extensionCode), "auction impl incorrect");
         extensionCode = _extensionCode;
@@ -101,8 +93,7 @@ contract StakeManager is
         logger = StakingInfo(_stakingLogger);
         validatorShareFactory = ValidatorShareFactory(_validatorShareFactory);
         _transferOwnership(_owner);
-        validatorRegistry = ValidatorRegistry(_validatorRegistry);
-
+        // validatorRegistry = IValidatorRegistry(_validatorRegistry);
         WITHDRAWAL_DELAY = (2**13); // unit: epoch
         currentEpoch = 1;
         dynasty = 886; // unit: epoch 50 days
@@ -218,12 +209,6 @@ contract StakeManager is
     function setStakingToken(address _token) public onlyGovernance {
         require(_token != address(0x0));
         token = IERC20(_token);
-    }
-
-    //update validator whitelisting contract address
-    function updateValidatorRegistry(address _newContract) public onlyOwner {
-        require(_newContract != address(0), "address cannot be zero");
-        validatorRegistry = ValidatorRegistry(_newContract);
     }
 
     /**
@@ -467,7 +452,8 @@ contract StakeManager is
         uint256 heimdallFee,
         bool acceptDelegation,
         bytes memory signerPubkey
-    ) public onlyWhenUnlocked onlyWhitelistedValidator(user) {
+    ) public onlyWhenUnlocked {
+        require(StakeManagerExtension(extensionCode).checkValidatorWhitelisting(user),"Validaor not whitelisted..");
         require(currentValidatorSetSize() < validatorThreshold, "no more slots");
         require(amount >= minDeposit, "not enough deposit");
         _transferAndTopUp(user, msg.sender, heimdallFee, amount);
