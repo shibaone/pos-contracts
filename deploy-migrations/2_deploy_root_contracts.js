@@ -241,7 +241,8 @@ module.exports = async function(deployer) {
         //update the address of bone token for mainnet below is bone at sepolia
         tokens: {
         //   MaticWeth: MaticWeth.address,
-          BoneToken: "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007",
+        // eth mainnet bone token
+          BoneToken: "0x9813037ee2218799597d83D4a5B6F3b6778218d9",
         //   TestToken: testToken.address,
         //   RootERC721: RootERC721.address
         }

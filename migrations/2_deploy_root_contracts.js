@@ -227,7 +227,7 @@ module.exports = async function(deployer, network, accounts) {
       stakeManager.contract.methods.initialize(
         Registry.address,
         RootChainProxy.address,
-        "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007", //bone token address on sepolia
+        "0x9813037ee2218799597d83D4a5B6F3b6778218d9", //bone token address
         StakingNFT.address,
         StakingInfo.address,
         ValidatorShareFactory.address,
@@ -301,7 +301,8 @@ module.exports = async function(deployer, network, accounts) {
         ValidatorRegistry: validatorRegistry.address,
         //bone token to be updated for different net below is for sepolia
         tokens: {
-          BoneToken: "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007",
+          //bone token address
+          BoneToken: "0x9813037ee2218799597d83D4a5B6F3b6778218d9",
           // MaticWeth: MaticWeth.address,
           // TestToken: TestToken.address,
           // RootERC721: RootERC721.address
