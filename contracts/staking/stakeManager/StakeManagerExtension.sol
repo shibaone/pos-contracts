@@ -25,6 +25,7 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
         validatorRegistry = IValidatorRegistry(_newContract);
     }
 
+    //checks only when validator registry enabled
     function checkValidatorWhitelisting(address validator) public view returns(bool){
         if(validatorRegistry.validatorWhitelistingEnable()){
             return validatorRegistry.validators(validator);

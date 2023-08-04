@@ -21,7 +21,6 @@ import {StakeManagerStorageExtension} from "./StakeManagerStorageExtension.sol";
 import {IGovernance} from "../../common/governance/IGovernance.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {StakeManagerExtension} from "./StakeManagerExtension.sol";
-// import {IValidatorRegistry} from "../IValidatorRegistry.sol";
 
 contract StakeManager is
     StakeManagerStorage,
@@ -34,8 +33,6 @@ contract StakeManager is
     using Merkle for bytes32;
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
-
-    // IValidatorRegistry public validatorRegistry;
 
     struct UnsignedValidatorsContext {
         uint256 unsignedValidatorIndex;
@@ -81,7 +78,6 @@ contract StakeManager is
         address _governance,
         address _owner,
         address _extensionCode
-        // address _validatorRegistry
     ) external initializer {
         require(isContract(_extensionCode), "auction impl incorrect");
         extensionCode = _extensionCode;
@@ -93,7 +89,6 @@ contract StakeManager is
         logger = StakingInfo(_stakingLogger);
         validatorShareFactory = ValidatorShareFactory(_validatorShareFactory);
         _transferOwnership(_owner);
-        // validatorRegistry = IValidatorRegistry(_validatorRegistry);
         WITHDRAWAL_DELAY = (2**13); // unit: epoch
         currentEpoch = 1;
         dynasty = 886; // unit: epoch 50 days
@@ -103,7 +98,7 @@ contract StakeManager is
         checkPointBlockInterval = 1024;
         signerUpdateLimit = 100;
 
-        validatorThreshold = 7; //128
+        validatorThreshold = 15; //128
         NFTCounter = 1;
         auctionPeriod = (2**13) / 4; // 1 week in epochs
         proposerBonus = 10; // 10 % of total rewards
