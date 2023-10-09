@@ -72,12 +72,12 @@ async function deploy() {
 
   await deployer.deploy(transformArtifact('ERC20PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
   await deployer.deploy(transformArtifact('ERC721PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
-  await deployer.deploy(transformArtifact('MintableERC721Predicate', ['WithdrawManagerProxy', 'DepositManagerProxy']))
+  // await deployer.deploy(transformArtifact('MintableERC721Predicate', ['WithdrawManagerProxy', 'DepositManagerProxy']))
 
-  await deployer.deploy(transformArtifact('Marketplace'))
-  await deployer.deploy(transformArtifact('MarketplacePredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
+  // await deployer.deploy(transformArtifact('Marketplace'))
+  // await deployer.deploy(transformArtifact('MarketplacePredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
 
-  await deployer.deploy(transformArtifact('TransferWithSigPredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
+  // await deployer.deploy(transformArtifact('TransferWithSigPredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
 
   // contracts, id = 38
   // id updated as test tokens are not deploying rn

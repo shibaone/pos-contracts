@@ -21,7 +21,6 @@ import {StakeManagerStorageExtension} from "./StakeManagerStorageExtension.sol";
 import {IGovernance} from "../../common/governance/IGovernance.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {StakeManagerExtension} from "./StakeManagerExtension.sol";
-// import {IValidatorRegistry} from "../IValidatorRegistry.sol";
 
 contract StakeManager is
     StakeManagerStorage,
@@ -35,7 +34,6 @@ contract StakeManager is
     using RLPReader for bytes;
     using RLPReader for RLPReader.RLPItem;
 
-    // IValidatorRegistry public validatorRegistry;
 
     struct UnsignedValidatorsContext {
         uint256 unsignedValidatorIndex;
@@ -93,7 +91,6 @@ contract StakeManager is
         logger = StakingInfo(_stakingLogger);
         validatorShareFactory = ValidatorShareFactory(_validatorShareFactory);
         _transferOwnership(_owner);
-        // validatorRegistry = IValidatorRegistry(_validatorRegistry);
         WITHDRAWAL_DELAY = (2**13); // unit: epoch
         currentEpoch = 1;
         dynasty = 886; // unit: epoch 50 days
