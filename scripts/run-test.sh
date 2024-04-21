@@ -41,5 +41,3 @@ if [ "$SOLIDITY_COVERAGE" = true ]; then
 else
   npm run truffle:test "$@"
 fi
-
-

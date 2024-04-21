@@ -47,10 +47,10 @@ const StakeManagerTestable = artifacts.require('StakeManagerTestable')
 const StakeManagerTest = artifacts.require('StakeManagerTest')
 
 const ExitNFT = artifacts.require('ExitNFT')
-// const MaticWeth = artifacts.require('MaticWETH')
-// const TestToken = artifacts.require('TestToken')
-// const BoneToken = artifacts.require('BoneToken')
-// const RootERC721 = artifacts.require('RootERC721')
+const MaticWeth = artifacts.require('MaticWETH')
+const TestToken = artifacts.require('TestToken')
+const BoneToken = artifacts.require('BoneToken')
+const RootERC721 = artifacts.require('RootERC721')
 
 const StakeManagerExtension = artifacts.require('StakeManagerExtension')
 const EventsHub = artifacts.require('EventsHub')
@@ -178,9 +178,9 @@ module.exports = async function(deployer, network, accounts) {
     await deployer.deploy(Registry, GovernanceProxy.address)
     await deployer.deploy(ValidatorShareFactory)
     await deployer.deploy(ValidatorShare)
-    // const boneToken = await deployer.deploy(BoneToken, 'BONE', 'BONE')
-    // await deployer.deploy(TestToken, 'Test ERC20', 'TEST20')
-    // await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
+    const boneToken = await deployer.deploy(BoneToken, 'BONE', 'BONE')
+    await deployer.deploy(TestToken, 'Test ERC20', 'TEST20')
+    await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
     await deployer.deploy(StakingInfo, Registry.address)
     await deployer.deploy(StakingNFT, 'Matic Validator', 'MV')
 
@@ -227,7 +227,7 @@ module.exports = async function(deployer, network, accounts) {
       stakeManager.contract.methods.initialize(
         Registry.address,
         RootChainProxy.address,
-        "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007", //bone token address on sepolia
+        boneToken.address,
         StakingNFT.address,
         StakingInfo.address,
         ValidatorShareFactory.address,
@@ -301,10 +301,10 @@ module.exports = async function(deployer, network, accounts) {
         ValidatorRegistry: validatorRegistry.address,
         //bone token to be updated for different net below is for sepolia
         tokens: {
-          BoneToken: "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007",
-          // MaticWeth: MaticWeth.address,
-          // TestToken: TestToken.address,
-          // RootERC721: RootERC721.address
+          BoneToken: BoneToken.address,
+          MaticWeth: MaticWeth.address,
+          TestToken: TestToken.address,
+          RootERC721: RootERC721.address
         }
       }
     }

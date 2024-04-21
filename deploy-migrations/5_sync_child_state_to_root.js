@@ -33,15 +33,15 @@ module.exports = async function(deployer, network, accounts) {
     ))
     await delay(5)
 
-    // tasks.push(governance.update(
-    //   contractAddresses.root.Registry,
-    //   registry.contract.methods.mapToken(
-    //     contractAddresses.root.tokens.TestToken,
-    //     contractAddresses.child.tokens.TestToken,
-    //     false /* isERC721 */
-    //   ).encodeABI()
-    // ))
-    // await delay(5)
+    tasks.push(governance.update(
+      contractAddresses.root.Registry,
+      registry.contract.methods.mapToken(
+        contractAddresses.root.tokens.BoneToken,
+        contractAddresses.child.tokens.BoneToken,
+        false /* isERC721 */
+      ).encodeABI()
+    ))
+    await delay(5)
 
     // tasks.push(governance.update(
     //   contractAddresses.root.Registry,

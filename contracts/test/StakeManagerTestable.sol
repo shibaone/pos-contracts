@@ -5,9 +5,7 @@ import { IValidatorShare } from "../staking/validatorShare/IValidatorShare.sol";
 
 contract StakeManagerTestable is StakeManager {
     function advanceEpoch(uint256 delta) public {
-        for (uint256 i = 0; i < delta; ++i) {
-            _finalizeCommit();
-        }
+        currentEpoch = currentEpoch.add(delta);
     }
 
     function testLockShareContract(uint256 validatorId, bool lock) public {

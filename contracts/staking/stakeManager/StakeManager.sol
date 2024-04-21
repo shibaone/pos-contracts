@@ -67,7 +67,7 @@ contract StakeManager is
         require(validators[validatorId].contractAddress == msg.sender, "Invalid contract address");
     }
 
-    constructor() public GovernanceLockable(address(0x0)) initializer {}
+    constructor() public GovernanceLockable(address(0x0)) {}
 
     function initialize(
         address _registry,
@@ -91,16 +91,23 @@ contract StakeManager is
         logger = StakingInfo(_stakingLogger);
         validatorShareFactory = ValidatorShareFactory(_validatorShareFactory);
         _transferOwnership(_owner);
+<<<<<<< HEAD
         WITHDRAWAL_DELAY = (2**13); // unit: epoch
         currentEpoch = 1;
         dynasty = 886; // unit: epoch 50 days
+=======
+
+        WITHDRAWAL_DELAY = (2); // unit: epoch
+        currentEpoch = 1;
+        dynasty = 2; // unit: epoch 50 days
+>>>>>>> eab530cb (Added changes for node v18.17.0)
         CHECKPOINT_REWARD = 505 * (10**18); // update via governance
         minDeposit = (10**18); // in ERC20 token
         minHeimdallFee = (10**18); // in ERC20 token
         checkPointBlockInterval = 1024;
         signerUpdateLimit = 100;
 
-        validatorThreshold = 7; //128
+        validatorThreshold = 25; //128
         NFTCounter = 1;
         auctionPeriod = (2**13) / 4; // 1 week in epochs
         proposerBonus = 10; // 10 % of total rewards
@@ -536,14 +543,7 @@ contract StakeManager is
             require(delegationEnabled, "Delegation is disabled");
         }
 
-        uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
-
-        if (deactivationEpoch == 0) { // modify timeline only if validator didn't unstake
-            updateTimeline(amount, 0, 0);
-        } else if (deactivationEpoch > currentEpoch) { // validator just unstaked, need to wait till next checkpoint
-            revert("unstaking");
-        }
-        
+        updateTimeline(amount, 0, 0);
 
         if (amount >= 0) {
             increaseValidatorDelegatedAmount(validatorId, uint256(amount));
@@ -568,16 +568,11 @@ contract StakeManager is
         address currentSigner = validators[validatorId].signer;
         // update signer event
         logger.logSignerChange(validatorId, currentSigner, signer, signerPubkey);
-        
-        if (validators[validatorId].deactivationEpoch == 0) { 
-            // didn't unstake, swap signer in the list
-            _removeSigner(currentSigner);
-            _insertSigner(signer);
-        }
 
         signerToValidator[currentSigner] = INCORRECT_VALIDATOR_ID;
         signerToValidator[signer] = validatorId;
         validators[validatorId].signer = signer;
+        _updateSigner(currentSigner, signer);
 
         // reset update time to current time
         latestSignerUpdateEpoch[validatorId] = _currentEpoch;
@@ -1206,6 +1201,11 @@ contract StakeManager is
         if (i != lastIndex) {
             signers[i] = newSigner;
         }
+    }
+
+    function _updateSigner(address prevSigner, address newSigner) internal {
+        _removeSigner(prevSigner);
+        _insertSigner(newSigner);
     }
 
     function _removeSigner(address signerToDelete) internal {

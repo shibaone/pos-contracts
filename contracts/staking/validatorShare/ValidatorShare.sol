@@ -406,6 +406,5 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         _withdrawAndTransferReward(from);
         // move shares to recipient
         super._transfer(from, to, value);
-        _getOrCacheEventsHub().logSharesTransfer(validatorId, from, to, value);
     }
 }

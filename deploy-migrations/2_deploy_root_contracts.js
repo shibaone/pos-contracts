@@ -42,10 +42,10 @@ const ExitNFT = artifacts.require('ExitNFT')
 const ValidatorRegistry = artifacts.require('ValidatorRegistry')
 
 // tokens
-// const MaticWeth = artifacts.require('MaticWETH')
-// const TestToken = artifacts.require('TestToken')
-// const BoneToken = artifacts.require('BoneToken')
-// const RootERC721 = artifacts.require('RootERC721')
+const MaticWeth = artifacts.require('MaticWETH')
+const TestToken = artifacts.require('TestToken')
+const BoneToken = artifacts.require('BoneToken')
+const RootERC721 = artifacts.require('RootERC721')
 
 const libDeps = [
   {
@@ -151,14 +151,11 @@ module.exports = async function(deployer) {
     await deployer.deploy(StakingInfo, Registry.address)
     await deployer.deploy(StakingNFT, 'Matic Validator', 'MV')
 
-    console.log('skipping token deployment')
-    // await deployer.deploy(MaticWeth)
-    // await deployer.deploy(BoneToken, 'BONE', 'BONE')
-    // const testToken = await TestToken.new('Test ERC20', 'TST20')
-    // await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
-
-    console.log("Deploying validator registry...")
-    await deployer.deploy(ValidatorRegistry)
+    console.log('deploying tokens...')
+    await deployer.deploy(MaticWeth)
+    await deployer.deploy(BoneToken, 'BONE', 'BONE')
+    const testToken = await TestToken.new('Test ERC20', 'TST20')
+    await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
 
     const stakeManager = await deployer.deploy(StakeManager)
     const proxy = await deployer.deploy(StakeManagerProxy, '0x0000000000000000000000000000000000000000')
@@ -240,10 +237,10 @@ module.exports = async function(deployer) {
         ValidatorRegistry: ValidatorRegistry.address,
         //update the address of bone token for mainnet below is bone at sepolia
         tokens: {
-        //   MaticWeth: MaticWeth.address,
-          BoneToken: "0xcA94c8B16209CCBAfCFeab9D7649DdaEcD444007",
-        //   TestToken: testToken.address,
-        //   RootERC721: RootERC721.address
+          MaticWeth: MaticWeth.address,
+          BoneToken: TestToken.address,
+          TestToken: testToken.address,
+          RootERC721: RootERC721.address
         }
       }
     }
