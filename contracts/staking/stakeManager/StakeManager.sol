@@ -67,7 +67,7 @@ contract StakeManager is
         require(validators[validatorId].contractAddress == msg.sender, "Invalid contract address");
     }
 
-    constructor() public GovernanceLockable(address(0x0)) initializer {}
+    constructor() public GovernanceLockable(address(0x0)) {}
 
     function initialize(
         address _registry,
@@ -91,16 +91,16 @@ contract StakeManager is
         validatorShareFactory = ValidatorShareFactory(_validatorShareFactory);
         _transferOwnership(_owner);
 
-        WITHDRAWAL_DELAY = (2**13); // unit: epoch
+        WITHDRAWAL_DELAY = (2); // unit: epoch
         currentEpoch = 1;
-        dynasty = 886; // unit: epoch 50 days
-        CHECKPOINT_REWARD = 20188 * (10**18); // update via governance
+        dynasty = 2; // unit: epoch 50 days
+        CHECKPOINT_REWARD = 505 * (10**18); // update via governance
         minDeposit = (10**18); // in ERC20 token
         minHeimdallFee = (10**18); // in ERC20 token
         checkPointBlockInterval = 1024;
         signerUpdateLimit = 100;
 
-        validatorThreshold = 7; //128
+        validatorThreshold = 25; //128
         NFTCounter = 1;
         auctionPeriod = (2**13) / 4; // 1 week in epochs
         proposerBonus = 10; // 10 % of total rewards
@@ -152,10 +152,7 @@ contract StakeManager is
     }
 
     function delegatorsReward(uint256 validatorId) public view returns (uint256) {
-        uint256 _delegatorsReward;
-        if (validators[validatorId].deactivationEpoch == 0) {
-            (, _delegatorsReward) = _evaluateValidatorAndDelegationReward(validatorId);
-        }
+        (, uint256 _delegatorsReward) = _evaluateValidatorAndDelegationReward(validatorId);
         return validators[validatorId].delegatorsReward.add(_delegatorsReward).sub(INITIALIZED_AMOUNT);
     }
 
@@ -538,14 +535,7 @@ contract StakeManager is
             require(delegationEnabled, "Delegation is disabled");
         }
 
-        uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
-
-        if (deactivationEpoch == 0) { // modify timeline only if validator didn't unstake
-            updateTimeline(amount, 0, 0);
-        } else if (deactivationEpoch > currentEpoch) { // validator just unstaked, need to wait till next checkpoint
-            revert("unstaking");
-        }
-        
+        updateTimeline(amount, 0, 0);
 
         if (amount >= 0) {
             increaseValidatorDelegatedAmount(validatorId, uint256(amount));
@@ -570,16 +560,11 @@ contract StakeManager is
         address currentSigner = validators[validatorId].signer;
         // update signer event
         logger.logSignerChange(validatorId, currentSigner, signer, signerPubkey);
-        
-        if (validators[validatorId].deactivationEpoch == 0) { 
-            // didn't unstake, swap signer in the list
-            _removeSigner(currentSigner);
-            _insertSigner(signer);
-        }
 
         signerToValidator[currentSigner] = INCORRECT_VALIDATOR_ID;
         signerToValidator[signer] = validatorId;
         validators[validatorId].signer = signer;
+        _updateSigner(currentSigner, signer);
 
         // reset update time to current time
         latestSignerUpdateEpoch[validatorId] = _currentEpoch;
@@ -850,7 +835,7 @@ contract StakeManager is
             if (prevBlockInterval != 0) {
                 // give more reward for faster and less for slower checkpoint
                 uint256 delta = (ckpReward * checkpointRewardDelta / CHK_REWARD_PRECISION);
-                
+
                 if (prevBlockInterval > fullIntervals) {
                     // checkpoint is faster
                     ckpReward += delta;
@@ -858,7 +843,7 @@ contract StakeManager is
                     ckpReward -= delta;
                 }
             }
-            
+
             prevBlockInterval = fullIntervals;
         }
 
@@ -915,7 +900,7 @@ contract StakeManager is
         // distribute rewards between signed validators
         rewardPerStake = newRewardPerStake;
 
-        // evaluate rewards for unstaked validators to ensure they get the reward for signing during their deactivationEpoch
+        // evaluate rewards for unstaked validators to avoid getting new rewards until they claim their stake
         _updateValidatorsRewards(deactivatedValidators, totalDeactivatedValidators, newRewardPerStake);
 
         _finalizeCommit();
@@ -938,11 +923,6 @@ contract StakeManager is
         uint256 currentRewardPerStake,
         uint256 newRewardPerStake
     ) private {
-        uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
-        if (deactivationEpoch != 0 && currentEpoch >= deactivationEpoch) {
-            return;
-        }
-
         uint256 initialRewardPerStake = validators[validatorId].initialRewardPerStake;
 
         // attempt to save gas in case if rewards were updated previosuly
@@ -1163,6 +1143,7 @@ contract StakeManager is
         uint256 reward = validators[validatorId].reward.sub(INITIALIZED_AMOUNT);
         totalRewardsLiquidated = totalRewardsLiquidated.add(reward);
         validators[validatorId].reward = INITIALIZED_AMOUNT;
+        validators[validatorId].initialRewardPerStake = rewardPerStake;
         _transferToken(validatorUser, reward);
         logger.logClaimRewards(validatorId, reward, totalRewardsLiquidated);
     }
@@ -1212,6 +1193,11 @@ contract StakeManager is
         if (i != lastIndex) {
             signers[i] = newSigner;
         }
+    }
+
+    function _updateSigner(address prevSigner, address newSigner) internal {
+        _removeSigner(prevSigner);
+        _insertSigner(newSigner);
     }
 
     function _removeSigner(address signerToDelete) internal {

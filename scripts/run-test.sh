@@ -10,15 +10,13 @@ trap cleanup EXIT
 PWD=$(pwd)
 
 cleanup() {
-  if [ "$GITHUB_ACTIONS" != true ] ; then
-    echo "Cleaning up"
-    pkill -f ganache
-    cd $PWD/test-blockchain
-    bash stop-docker.sh
-    bash clean.sh
-    cd ..
-    echo "Done"
-  fi
+  echo "Cleaning up"
+  pkill -f ganache-cli
+  cd $PWD/test-blockchain
+  bash stop-docker.sh
+  bash clean.sh
+  cd ..
+  echo "Done"
 }
 
 start_testrpc() {
@@ -32,10 +30,10 @@ start_blockchain() {
 }
 
 
-echo "Starting our own ganache (L1) instance"
+echo "Starting our own testrpc instance"
 start_testrpc
 
-echo "Starting our own bor (L2) instance"
+echo "Starting our own geth instance"
 start_blockchain
 
 if [ "$SOLIDITY_COVERAGE" = true ]; then

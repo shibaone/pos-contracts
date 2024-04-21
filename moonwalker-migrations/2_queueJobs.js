@@ -1,3 +1,4 @@
+require('dotenv').config()
 const fs = require('fs')
 
 const Registry = artifacts.require('Registry')
@@ -5,7 +6,7 @@ const Registry = artifacts.require('Registry')
 const ethUtils = require('ethereumjs-util')
 const EthDeployer = require('moonwalker').default
 
-let id = 33 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
+let id = 41 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
 
 async function deploy() {
   const qClient = await EthDeployer.getQueue()
@@ -93,7 +94,6 @@ async function deploy() {
     )
   )
 
-
   await deployer.deploy(
     tx('Governance', 'update',
       [
@@ -104,7 +104,7 @@ async function deploy() {
               ethUtils.bufferToHex(ethUtils.keccak256('stateSender')),
               getAddressForContract('StateSender')
             ).encodeABI()
-        },
+        }
       ],
       'GovernanceProxy'
     )
@@ -120,7 +120,23 @@ async function deploy() {
               ethUtils.bufferToHex(ethUtils.keccak256('wethToken')),
               getAddressForContract('MaticWETH')
             ).encodeABI()
-        },
+        }
+      ],
+      'GovernanceProxy'
+    )
+  )
+
+  await deployer.deploy(
+    tx('Governance', 'update',
+      [
+        'Registry',
+        {
+          value:
+            registry.contract.methods.updateContractMap(
+              ethUtils.bufferToHex(ethUtils.keccak256('eventsHub')),
+              getAddressForContract('EventsHubProxy')
+            ).encodeABI()
+        }
       ],
       'GovernanceProxy'
     )
@@ -133,7 +149,37 @@ async function deploy() {
         {
           value:
             registry.contract.methods.addErc20Predicate(
-              getAddressForContract('ERC20Predicate')
+              getAddressForContract('ERC20PredicateBurnOnly')
+            ).encodeABI()
+        }
+      ],
+      'GovernanceProxy'
+    )
+  )
+
+  await deployer.deploy(
+    tx('Governance', 'update',
+      [
+        'Registry',
+        {
+          value:
+            registry.contract.methods.addErc721Predicate(
+              getAddressForContract('ERC721PredicateBurnOnly')
+            ).encodeABI()
+        }
+      ],
+      'GovernanceProxy'
+    )
+  )
+
+  await deployer.deploy(
+    tx('Governance', 'update',
+      [
+        'Registry',
+        {
+          value:
+            registry.contract.methods.addPredicate(
+              getAddressForContract('MarketplacePredicate'), 3
             ).encodeABI()
         },
       ],
@@ -147,8 +193,8 @@ async function deploy() {
         'Registry',
         {
           value:
-            registry.contract.methods.addErc721Predicate(
-              getAddressForContract('ERC721Predicate')
+            registry.contract.methods.addPredicate(
+              getAddressForContract('TransferWithSigPredicate'), 3
             ).encodeABI()
         },
       ],
@@ -156,19 +202,28 @@ async function deploy() {
     )
   )
 
+
   await deployer.deploy(tx('StakingNFT', 'transferOwnership', ['StakeManagerProxy']))
+
   await deployer.deploy(tx('StakeManager', 'initialize', [
     'Registry',
     'RootChainProxy',
-    'TestToken',
+    'BoneToken', // Was 'TestToken'
     'StakingNFT',
     'StakingInfo',
     'ValidatorShareFactory',
     'GovernanceProxy',
-    { value: process.env.FROM } // owner
+    { value: process.env.FROM }, // owner
+    'StakeManagerExtension'
   ],
   'StakeManagerProxy'
-))
+  ))
+
+  await deployer.deploy(tx('EventsHub', 'initialize', [
+    'Registry'
+  ],
+  'EventsHubProxy'
+  ))
 }
 
 function tx(contract, method, args, addressArtifact) {
@@ -205,7 +260,7 @@ function getAddressForContract(contract) {
 
 function wait(ms) {
   return new Promise((resolve, reject) => {
-    setTimeout(function() { resolve() }, ms);
+    setTimeout(function() { resolve() }, ms)
   })
 }
 

@@ -96,7 +96,6 @@ contract PredicateUtils is ExitsDataStructure, ChainIdMixin {
             bytes32(txList[7].toUint()),
             bytes32(txList[8].toUint())
         );
-        require(signer != address(0), "Invalid signer");
     }
 
     function decodeExit(bytes memory data)
