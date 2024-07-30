@@ -55,14 +55,14 @@ module.exports = {
         }),
       network_id: '80001'
     },
-    goerli: {
+    holesky: {
       provider: function() {
         return new HDWalletProvider({
           ...MNEMONIC,
-          providerOrUrl: `https://goerli.infura.io/v3/${API_KEY}`
+          providerOrUrl: `https://eth-holesky.g.alchemy.com/v2/${API_KEY}`
         })
       },
-      network_id: 5,
+      network_id: 17000,
       gas: 8000000,
       gasPrice: 10000000000, // 10 gwei
       skipDryRun: true
