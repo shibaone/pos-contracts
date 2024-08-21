@@ -13,15 +13,15 @@ module.exports = async function(deployer, network, accounts) {
     const governance = await Governance.at(contractAddresses.root.GovernanceProxy)
     const tasks = []
 
-    tasks.push(governance.update(
-      contractAddresses.root.Registry,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.MaticWeth,
-        contractAddresses.child.tokens.MaticWeth,
-        false /* isERC721 */
-      ).encodeABI()
-    ))
-    await delay(5)
+    // tasks.push(governance.update(
+    //   contractAddresses.root.Registry,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.MaticWeth,
+    //     contractAddresses.child.tokens.MaticWeth,
+    //     false /* isERC721 */
+    //   ).encodeABI()
+    // ))
+    // await delay(5)
 
     tasks.push(governance.update(
       contractAddresses.root.Registry,
@@ -33,25 +33,25 @@ module.exports = async function(deployer, network, accounts) {
     ))
     await delay(5)
 
-    tasks.push(governance.update(
-      contractAddresses.root.Registry,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.TestToken,
-        contractAddresses.child.tokens.TestToken,
-        false /* isERC721 */
-      ).encodeABI()
-    ))
-    await delay(5)
+    // tasks.push(governance.update(
+    //   contractAddresses.root.Registry,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.TestToken,
+    //     contractAddresses.child.tokens.TestToken,
+    //     false /* isERC721 */
+    //   ).encodeABI()
+    // ))
+    // await delay(5)
 
-    tasks.push(governance.update(
-      contractAddresses.root.Registry,
-      registry.contract.methods.mapToken(
-        contractAddresses.root.tokens.RootERC721,
-        contractAddresses.child.tokens.RootERC721,
-        true /* isERC721 */
-      ).encodeABI()
-    ))
-    await delay(5)
+    // tasks.push(governance.update(
+    //   contractAddresses.root.Registry,
+    //   registry.contract.methods.mapToken(
+    //     contractAddresses.root.tokens.RootERC721,
+    //     contractAddresses.child.tokens.RootERC721,
+    //     true /* isERC721 */
+    //   ).encodeABI()
+    // ))
+    // await delay(5)
 
     tasks.push(governance.update(
       contractAddresses.root.Registry,

@@ -43,42 +43,45 @@ async function deploy() {
   await deployer.deploy(transformArtifact('StakingNFT', [{ value: 'Shibarium Validator' }, { value: 'SHV' }]))
 
   // contracts, id = 18
-  await deployer.deploy(transformArtifact('BoneToken', [{ value: `${process.env.MATIC_NAME}` }, { value: `${process.env.MATIC_NAME}` }]))
-  await deployer.deploy(transformArtifact('TestToken', [{ value: `ERC20-${process.env.MATIC_NAME}` }, { value: `ERC20-${process.env.MATIC_NAME}` }]))
-  await deployer.deploy(transformArtifact('RootERC721', [{ value: `ERC721-${process.env.MATIC_NAME}` }, { value: `ERC721-${process.env.MATIC_NAME}` }]))
-  await deployer.deploy(transformArtifact('MaticWETH'))
+  // await deployer.deploy(transformArtifact('BoneToken', [{ value: `${process.env.MATIC_NAME}` }, { value: `${process.env.MATIC_NAME}` }]))
+  // await deployer.deploy(transformArtifact('TestToken', [{ value: `ERC20-${process.env.MATIC_NAME}` }, { value: `ERC20-${process.env.MATIC_NAME}` }]))
+  // await deployer.deploy(transformArtifact('RootERC721', [{ value: `ERC721-${process.env.MATIC_NAME}` }, { value: `ERC721-${process.env.MATIC_NAME}` }]))
+  // await deployer.deploy(transformArtifact('MaticWETH'))
 
-  // contracts, id = 22
+  // contracts, id = 18
   await deployer.deploy(transformArtifact('StakeManager'))
   await deployer.deploy(transformArtifact('StakeManagerProxy', ['StakeManager']))
   await deployer.deploy(transformArtifact('StakeManagerExtension'))
   await deployer.deploy(transformArtifact('SlashingManager', ['Registry', 'StakingInfo', { value: process.env.HEIMDALL_ID }]))
   await deployer.deploy(transformArtifact('ValidatorShare'))
+  await deployer.deploy(transformArtifact('ValidatorRegistry'))
 
-  // contracts, id = 27
+  // contracts, id = 24
   await deployer.deploy(transformArtifact('StateSender'))
   await deployer.deploy(transformArtifact('DepositManager'))
   await deployer.deploy(transformArtifact('DepositManagerProxy', ['DepositManager', 'Registry', 'RootChainProxy', 'GovernanceProxy']))
 
-  // contracts, id = 30
+  // contracts, id = 27
   await deployer.deploy(transformArtifact('WithdrawManager'))
   await deployer.deploy(transformArtifact('ExitNFT', ['Registry']))
   await deployer.deploy(transformArtifact('WithdrawManagerProxy', ['WithdrawManager', 'Registry', 'RootChainProxy', 'ExitNFT']))
 
-  // contracts, id = 33
+  // contracts, id = 30
   await deployer.deploy(transformArtifact('EventsHub'))
   await deployer.deploy(transformArtifact('EventsHubProxy', ['EventsHub']))
 
   await deployer.deploy(transformArtifact('ERC20PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
   await deployer.deploy(transformArtifact('ERC721PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
-  await deployer.deploy(transformArtifact('MintableERC721Predicate', ['WithdrawManagerProxy', 'DepositManagerProxy']))
+  // await deployer.deploy(transformArtifact('MintableERC721Predicate', ['WithdrawManagerProxy', 'DepositManagerProxy']))
 
-  await deployer.deploy(transformArtifact('Marketplace'))
-  await deployer.deploy(transformArtifact('MarketplacePredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
+  // await deployer.deploy(transformArtifact('Marketplace'))
+  // await deployer.deploy(transformArtifact('MarketplacePredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
 
-  await deployer.deploy(transformArtifact('TransferWithSigPredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
+  // await deployer.deploy(transformArtifact('TransferWithSigPredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
 
-  // contracts, id = 41
+  // contracts, id = 38
+  // id updated as test tokens are not deploying rn
+  // Add test BoneToken migration obj id 38 manually in build/status.json file
 }
 
 function transformArtifact(contract, args = []) {
