@@ -250,8 +250,4 @@ contract BoneToken is ERC20, ERC20Detailed, Ownable {
     assembly { chainId := chainid() }
     return chainId;
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> eab530cb (Added changes for node v18.17.0)
