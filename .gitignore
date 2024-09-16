@@ -26,3 +26,5 @@ test-blockchain/data
 coverage/
 
 coverage.json
+
+.idea

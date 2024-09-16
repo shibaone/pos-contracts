@@ -7,7 +7,7 @@
     "contracts": "RootChain StakeManager"
   },
   "scripts": {
-    "testrpc": "ganache --chain.hardfork istanbul --wallet.mnemonic 'clock radar mass judge dismiss just intact mind resemble fringe diary casino' -p 9545 --miner.blockGasLimit 100000000 --miner.defaultGasPrice 0 --chain.allowUnlimitedContractSize --wallet.totalAccounts 200",
+    "testrpc": "ganache --chain.hardfork istanbul --wallet.mnemonic 'clock radar mass judge dismiss just intact mind resemble fringe diary casino' -p 9545 --miner.blockGasLimit 10000000 --miner.defaultGasPrice 0 --chain.allowUnlimitedContractSize --wallet.totalAccounts 200",
     "template:process": "node scripts/process-templates.js",
     "truffle": "truffle",
     "truffle:test": "truffle test",
@@ -59,7 +59,6 @@
     "eth-gas-reporter": "0.1.12",
     "eth-sig-util": "^2.1.1",
     "ethers": "4.0.13",
-    "moonwalker": "github:atvanguard/moonwalker#4c4592e2d6c1744fbcd9452cf0f00e9beb236b21",
     "pre-commit": "^1.2.2",
     "safe-buffer": "5.1.2",
     "solidity-coverage": "^0.7.4",

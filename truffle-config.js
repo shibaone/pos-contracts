@@ -19,7 +19,7 @@ const MNEMONIC =
 const API_KEY = process.env.API_KEY
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY
 module.exports = {
-  // See <http://truffleframework.com/docs/advanced/configuration>
+  // See <https://trufflesuite.com/docs/truffle/reference/configuration/>
   // to customize your Truffle configuration!
   networks: {
     development: {
@@ -27,7 +27,7 @@ module.exports = {
       port: 9545,
       network_id: '*', // match any network
       skipDryRun: true,
-      gas: 70000000
+      gas: 0
     },
     bor: {
       provider: () =>
@@ -36,7 +36,7 @@ module.exports = {
           providerOrUrl: `http://localhost:8545`
         }),
       network_id: '*', // match any network
-      gasPrice: '0'
+      gasPrice: '90000000000'
     },
     matic: {
       provider: () =>
@@ -82,7 +82,6 @@ module.exports = {
   compilers: {
     solc: {
       version: '0.5.17',
-      docker: false,
       parser: 'solcjs',
       settings: {
         optimizer: {
