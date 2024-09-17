@@ -36,16 +36,16 @@ const ValidatorShareFactory = artifacts.require('ValidatorShareFactory')
 const ERC20Predicate = artifacts.require('ERC20Predicate')
 const ERC721Predicate = artifacts.require('ERC721Predicate')
 const MintableERC721Predicate = artifacts.require('MintableERC721Predicate')
-const MarketplacePredicate = artifacts.require('MarketplacePredicate')
-const TransferWithSigPredicate = artifacts.require('TransferWithSigPredicate')
+// const MarketplacePredicate = artifacts.require('MarketplacePredicate')
+// const TransferWithSigPredicate = artifacts.require('TransferWithSigPredicate')
 const ExitNFT = artifacts.require('ExitNFT')
 const ValidatorRegistry = artifacts.require('ValidatorRegistry')
 
 // tokens
-const MaticWeth = artifacts.require('MaticWETH')
-const TestToken = artifacts.require('TestToken')
+// const MaticWeth = artifacts.require('MaticWETH')
+// const TestToken = artifacts.require('TestToken')
 const BoneToken = artifacts.require('BoneToken')
-const RootERC721 = artifacts.require('RootERC721')
+// const RootERC721 = artifacts.require('RootERC721')
 
 const libDeps = [
   {
@@ -152,10 +152,10 @@ module.exports = async function(deployer) {
     await deployer.deploy(StakingNFT, 'Matic Validator', 'MV')
 
     console.log('deploying tokens...')
-    await deployer.deploy(MaticWeth)
+    // await deployer.deploy(MaticWeth)
     await deployer.deploy(BoneToken, 'BONE', 'BONE')
-    const testToken = await TestToken.new('Test ERC20', 'TST20')
-    await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
+    // const testToken = await TestToken.new('Test ERC20', 'TST20')
+    // await deployer.deploy(RootERC721, 'Test ERC721', 'TST721')
 
     const stakeManager = await deployer.deploy(StakeManager)
     const proxy = await deployer.deploy(StakeManagerProxy, '0x0000000000000000000000000000000000000000')
@@ -231,16 +231,16 @@ module.exports = async function(deployer) {
         predicates: {
           ERC20Predicate: ERC20Predicate.address,
           ERC721Predicate: ERC721Predicate.address,
-          MarketplacePredicate: MarketplacePredicate.address,
-          TransferWithSigPredicate: TransferWithSigPredicate.address
+          // MarketplacePredicate: MarketplacePredicate.address,
+          // TransferWithSigPredicate: TransferWithSigPredicate.address
         },
         ValidatorRegistry: ValidatorRegistry.address,
         //update the address of bone token for mainnet below is bone at sepolia
         tokens: {
-          MaticWeth: MaticWeth.address,
+          // MaticWeth: MaticWeth.address,
           BoneToken: TestToken.address,
-          TestToken: testToken.address,
-          RootERC721: RootERC721.address
+          // TestToken: testToken.address,
+          // RootERC721: RootERC721.address
         }
       }
     }

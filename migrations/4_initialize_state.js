@@ -10,8 +10,8 @@ const StakeManagerProxy = artifacts.require('StakeManagerProxy')
 const SlashingManager = artifacts.require('SlashingManager')
 const ERC20Predicate = artifacts.require('ERC20Predicate')
 const ERC721Predicate = artifacts.require('ERC721Predicate')
-const MarketplacePredicate = artifacts.require('MarketplacePredicate')
-const TransferWithSigPredicate = artifacts.require('TransferWithSigPredicate')
+// const MarketplacePredicate = artifacts.require('MarketplacePredicate')
+// const TransferWithSigPredicate = artifacts.require('TransferWithSigPredicate')
 // const MaticWeth = artifacts.require('MaticWETH')
 const Governance = artifacts.require('Governance')
 const EventsHubProxy = artifacts.require('EventsHubProxy')
@@ -117,14 +117,14 @@ module.exports = async function(deployer) {
           registry.contract.methods.addErc721Predicate(ERC721Predicate.address).encodeABI()
         )
 
-        await governance.update(
-          registry.address,
-          registry.contract.methods.addPredicate(MarketplacePredicate.address, 3).encodeABI()
-        )
-        await governance.update(
-          registry.address,
-          registry.contract.methods.addPredicate(TransferWithSigPredicate.address, 3).encodeABI()
-        )
+        // await governance.update(
+        //   registry.address,
+        //   registry.contract.methods.addPredicate(MarketplacePredicate.address, 3).encodeABI()
+        // )
+        // await governance.update(
+        //   registry.address,
+        //   registry.contract.methods.addPredicate(TransferWithSigPredicate.address, 3).encodeABI()
+        // )
       })
   })
 }

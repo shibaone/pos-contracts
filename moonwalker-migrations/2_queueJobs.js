@@ -6,7 +6,7 @@ const Registry = artifacts.require('Registry')
 const ethUtils = require('ethereumjs-util')
 const EthDeployer = require('moonwalker').default
 
-let id = 35 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
+let id = 36 // THIS SHOULD BE NUMBER OF JOBS PROCESSED IN THE PREVIOUS SCRIPT
 
 async function deploy() {
   const qClient = await EthDeployer.getQueue()
@@ -157,50 +157,50 @@ async function deploy() {
     )
   )
 
-  await deployer.deploy(
-    tx('Governance', 'update',
-      [
-        'Registry',
-        {
-          value:
-            registry.contract.methods.addErc721Predicate(
-              getAddressForContract('ERC721PredicateBurnOnly')
-            ).encodeABI()
-        }
-      ],
-      'GovernanceProxy'
-    )
-  )
+  // await deployer.deploy(
+  //   tx('Governance', 'update',
+  //     [
+  //       'Registry',
+  //       {
+  //         value:
+  //           registry.contract.methods.addErc721Predicate(
+  //             getAddressForContract('ERC721PredicateBurnOnly')
+  //           ).encodeABI()
+  //       }
+  //     ],
+  //     'GovernanceProxy'
+  //   )
+  // )
 
-  await deployer.deploy(
-    tx('Governance', 'update',
-      [
-        'Registry',
-        {
-          value:
-            registry.contract.methods.addPredicate(
-              getAddressForContract('MarketplacePredicate'), 3
-            ).encodeABI()
-        },
-      ],
-      'GovernanceProxy'
-    )
-  )
+  // await deployer.deploy(
+  //   tx('Governance', 'update',
+  //     [
+  //       'Registry',
+  //       {
+  //         value:
+  //           registry.contract.methods.addPredicate(
+  //             getAddressForContract('MarketplacePredicate'), 3
+  //           ).encodeABI()
+  //       },
+  //     ],
+  //     'GovernanceProxy'
+  //   )
+  // )
 
-  await deployer.deploy(
-    tx('Governance', 'update',
-      [
-        'Registry',
-        {
-          value:
-            registry.contract.methods.addPredicate(
-              getAddressForContract('TransferWithSigPredicate'), 3
-            ).encodeABI()
-        },
-      ],
-      'GovernanceProxy'
-    )
-  )
+  // await deployer.deploy(
+  //   tx('Governance', 'update',
+  //     [
+  //       'Registry',
+  //       {
+  //         value:
+  //           registry.contract.methods.addPredicate(
+  //             getAddressForContract('TransferWithSigPredicate'), 3
+  //           ).encodeABI()
+  //       },
+  //     ],
+  //     'GovernanceProxy'
+  //   )
+  // )
 
 
   await deployer.deploy(tx('StakingNFT', 'transferOwnership', ['StakeManagerProxy']))

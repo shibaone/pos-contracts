@@ -43,7 +43,7 @@ async function deploy() {
   await deployer.deploy(transformArtifact('StakingNFT', [{ value: 'Shibarium Validator' }, { value: 'SHV' }]))
 
   // contracts, id = 18
-  // await deployer.deploy(transformArtifact('BoneToken', [{ value: `${process.env.MATIC_NAME}` }, { value: `${process.env.MATIC_NAME}` }]))
+  await deployer.deploy(transformArtifact('BoneToken', [{ value: `${process.env.MATIC_NAME}` }, { value: `${process.env.MATIC_NAME}` }]))
   // await deployer.deploy(transformArtifact('TestToken', [{ value: `ERC20-${process.env.MATIC_NAME}` }, { value: `ERC20-${process.env.MATIC_NAME}` }]))
   // await deployer.deploy(transformArtifact('RootERC721', [{ value: `ERC721-${process.env.MATIC_NAME}` }, { value: `ERC721-${process.env.MATIC_NAME}` }]))
   // await deployer.deploy(transformArtifact('MaticWETH'))
@@ -71,7 +71,7 @@ async function deploy() {
   await deployer.deploy(transformArtifact('EventsHubProxy', ['EventsHub']))
 
   await deployer.deploy(transformArtifact('ERC20PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
-  await deployer.deploy(transformArtifact('ERC721PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
+  // await deployer.deploy(transformArtifact('ERC721PredicateBurnOnly', ['WithdrawManagerProxy', 'DepositManagerProxy']))
   // await deployer.deploy(transformArtifact('MintableERC721Predicate', ['WithdrawManagerProxy', 'DepositManagerProxy']))
 
   // await deployer.deploy(transformArtifact('Marketplace'))
@@ -79,7 +79,7 @@ async function deploy() {
 
   // await deployer.deploy(transformArtifact('TransferWithSigPredicate', ['RootChain', 'WithdrawManagerProxy', 'Registry']))
 
-  // contracts, id = 38
+  // contracts, id = 35
   // id updated as test tokens are not deploying rn
   // Add test BoneToken migration obj id 38 manually in build/status.json file
 }
