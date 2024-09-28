@@ -1,60 +1,13 @@
-# Matic contracts
+# Sample Hardhat Project
 
-![Build Status](https://github.com/maticnetwork/contracts/workflows/CI/badge.svg)
+This project demonstrates a basic Hardhat use case. It comes with a sample contract, a test for that contract, and a Hardhat Ignition module that deploys that contract.
 
-Ethereum smart contracts that power the [Matic Network](https://matic.network).
+Try running some of the following tasks:
 
-### Install dependencies with
-
-```
-npm install
-```
-
-### Compile
-
-bor-chain-id for Mainnet = 137
-bor-chain-id for TestnetV4 (Mumbai) = 80001
-bor-chain-id for unit tests = 15001
-
-```
-npm run template:process -- --bor-chain-id <bor-chain-id>
-npm run truffle:compile
-```
-
-### Start main chain and side chain
-
-- Start Main chain
-
-```
-npm run testrpc
-```
-
-- Start Matic side chain. Requires docker.
-
-```
-npm run bor:simulate
-```
-
-- If you ran a bor instance before, a dead docker container might still be lying around, clean it with
-
-```
-npm run bor:clean
-```
-
-- Run a bor (our matic chain node) instance.
-
-### Deploy Contracts
-
-- For local development
-
-```
-npm run truffle:migrate
-```
-
-- For a properly initialized set of contracts, follow the instructions [here](./deploy-migrations/README.md).
-
-### Run tests
-
-```
-npm test
+```shell
+npx hardhat help
+npx hardhat test
+REPORT_GAS=true npx hardhat test
+npx hardhat node
+npx hardhat ignition deploy ./ignition/modules/Lock.js
 ```

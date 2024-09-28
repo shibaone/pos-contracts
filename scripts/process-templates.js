@@ -1,39 +1,47 @@
-const program = require("commander");
-const nunjucks = require("nunjucks");
-const glob = require("glob");
-const fs = require("fs");
+const fs = require("fs").promises;
 const path = require("path");
 
-program.version("0.0.1");
-program.option("-c, --bor-chain-id <bor-chain-id>", "Bor chain id", "15001");
-program.parse(process.argv);
+// Set default Bor chain id and allow overriding via command-line arguments
+const borChainId = process.argv[2] || "15001";
 
-//joining path of directory
-const directoryPath = path.join(__dirname, "..", "**/*.template");
-//passsing directoryPath and callback function
-glob(directoryPath, function (err, files) {
-  //handling error
-  if (err) {
-    return console.log("Unable to scan directory: " + err);
+// Convert borChainId to hexadecimal and ensure it's an even-length string
+const borChainIdHex = parseInt(borChainId, 10).toString(16).toUpperCase();
+const formattedBorChainIdHex = borChainIdHex.length % 2 !== 0 ? `0${borChainIdHex}` : borChainIdHex;
+
+// Recursive function to process all .template files in the directory and its subdirectories
+async function processTemplates(directory) {
+  try {
+    const files = await fs.readdir(directory, { withFileTypes: true });
+    
+    for (const file of files) {
+      const filePath = path.join(directory, file.name);
+
+      if (file.isDirectory()) {
+        // If it's a directory, recursively process the files within
+        await processTemplates(filePath);
+      } else if (file.name.endsWith(".template")) {
+        // If it's a .template file, process it
+        const templateString = await fs.readFile(filePath, "utf-8");
+
+        // Replace placeholders with actual values
+        const resultString = templateString
+          .replace(/{{\s*borChainId\s*}}/g, borChainId)
+          .replace(/{{\s*borChainIdHex\s*}}/g, formattedBorChainIdHex);
+
+        // Write the processed content to the new file (without ".template" extension)
+        const outputPath = filePath.replace(".template", "");
+        await fs.writeFile(outputPath, resultString);
+        
+        console.log(`Processed: ${outputPath}`);
+      }
+    }
+  } catch (err) {
+    console.error("Error processing files:", err);
   }
+}
 
-  //listing all files using forEach
-  files.forEach(function (file) {
-    // Do whatever you want to do with the file
-    const borChainIdHex = parseInt(program.borChainId, 10)
-      .toString(16)
-      .toUpperCase();
-
-    const data = {
-      borChainId: program.borChainId,
-      borChainIdHex:
-        borChainIdHex.length % 2 !== 0 ? `0${borChainIdHex}` : borChainIdHex,
-    };
-
-    const templateString = fs.readFileSync(file).toString();
-    const resultString = nunjucks.renderString(templateString, data);
-    fs.writeFileSync(file.replace(".template", ""), resultString);
-  });
-
+// Start processing from the root directory (parent folder)
+const rootDirectory = path.join(__dirname, "..");
+processTemplates(rootDirectory).then(() => {
   console.log("All template files have been processed.");
 });

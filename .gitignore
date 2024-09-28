@@ -1,30 +1,20 @@
 node_modules
-build
-contractAddresses.json
+.env
 
-# ignore generated files
-contracts/root/predicates/TransferWithSigUtils.sol
-contracts/common/mixin/ChainIdMixin.sol
-test-blockchain/genesis.json
-test-blockchain/start.sh
-test/helpers/marketplaceUtils.js
+# Hardhat files
+/cache
+/artifacts
 
-test-blockchain/geth
-test-blockchain/history
-test-blockchain/data
+# TypeChain files
+/typechain
+/typechain-types
 
-*.pid
-*.log
+# solidity-coverage files
+/coverage
+/coverage.json
 
-.DS_Store
-*.env
+# Hardhat Ignition default folder for deployments against a local node
+ignition/deployments/chain-31337
 
-# IDEs
-.vscode
-.idea
-
-coverage/
-
-coverage.json
-
-.idea
+# Other
+/temp
