@@ -45,9 +45,7 @@ module.exports = buildModule("RootContracts", (m) => {
     const SlashingManager = m.contract("SlashingManager", [Registry, StakingInfo, StakeManagerProxy]);
 
     const ValidatorShare = m.contract("ValidatorShare");
-    // const ValidatorShareProxy = m.contract("ValidatorShareProxy",["0x0000000000000000000000000000000000000000"]);
-    // const InitCallData = m.encodeFunctionCall(ValidatorShare, "initialize", [ 0, StakingInfo, StakeManagerProxy]);
-    // m.call(ValidatorShareProxy, "updateAndCall",[ValidatorShare, InitCallData]);
+    const ValidatorRegistry = m.contract("ValidatorRegistry")
 
     const StateSender = m.contract("StateSender", []);
 

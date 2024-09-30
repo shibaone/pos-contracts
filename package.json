@@ -4,7 +4,11 @@
     "ethereumjs-util": "^7.1.5",
     "hardhat": "^2.22.11",
     "openzeppelin-solidity": "^2.2.0",
+    "pre-commit": "^1.2.2",
     "solidity-rlp": "^2.0.0"
+  },
+  "scripts": {
+    "template:process": "node scripts/process-templates.js"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0"
