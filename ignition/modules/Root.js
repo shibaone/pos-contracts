@@ -2,23 +2,13 @@
 const { buildModule } = require("@nomicfoundation/hardhat-ignition/modules");
 const { ethers } = require("hardhat");
 require("dotenv").config();
-// const ethUtils = require('ethereumjs-util');
-
 
 const { HEIMDALL_ID, FROM } = process.env;
 
 module.exports = buildModule("RootContracts", (m) => {
 
     //Library files
-    // const BytesLib = m.library("BytesLib");
     const Common = m.library("Common");
-    // const ECVerify = m.library("ECVerify");
-    // const Merkle = m.library("Merkle");
-    // const MerklePatriciaProof = m.library("MerklePatriciaProof");
-    // const PriorityQueue = m.library("PriorityQueue");
-    // const RLPEncode = m.library("RLPEncode");
-    // const RLPReader = m.library("RLPReader");
-    // const SafeMath = m.library("contracts/common/gnosis/GnosisSafe.sol:SafeMath");
     const TransferWithSigUtils = m.library("TransferWithSigUtils");
 
     //Contracts
@@ -149,8 +139,6 @@ module.exports = buildModule("RootContracts", (m) => {
         )
     ], { id: "callEventsHubUpdate" });
 
-
-
     return {
         Governance,
         GovernanceProxy,
@@ -165,6 +153,7 @@ module.exports = buildModule("RootContracts", (m) => {
         StakeManagerProxy,
         SlashingManager,
         ValidatorShare,
+        ValidatorRegistry,
         StateSender,
         DepositManager,
         DepositManagerProxy,
@@ -178,6 +167,5 @@ module.exports = buildModule("RootContracts", (m) => {
         MarketplacePredicate,
         TransferWithSigPredicate
     }
-
 })
 
