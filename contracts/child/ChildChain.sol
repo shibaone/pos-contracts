@@ -81,7 +81,7 @@ contract ChildChain is Ownable, StateSyncerVerifier, StateReceiver {
         // broadcast new token's event
         emit NewToken(_rootToken, token, _decimals);
     }
-
+ 
     // for testnet updates remove for mainnet
     function mapToken(address rootToken, address token, bool isErc721)
         public
