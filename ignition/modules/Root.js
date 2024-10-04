@@ -139,6 +139,12 @@ module.exports = buildModule("RootContracts", (m) => {
         )
     ], { id: "callEventsHubUpdate" });
 
+    // Updating Validator Registry in StakeManagerExtension
+    m.call(StakeManagerExtension, "updateValidatorRegistry",[ValidatorRegistry]);
+
+    // Transfer ownership of staking NFT contract to the stake manager proxy
+    m.call(StakingNFT, "transferOwnership",[StakeManagerProxy]);
+
     return {
         Governance,
         GovernanceProxy,
