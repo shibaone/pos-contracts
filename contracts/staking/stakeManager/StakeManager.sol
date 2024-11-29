@@ -3,8 +3,6 @@ pragma solidity 0.5.17;
 import {IERC20} from "openzeppelin-solidity/contracts/token/ERC20/IERC20.sol";
 import {Math} from "openzeppelin-solidity/contracts/math/Math.sol";
 import {SafeMath} from "openzeppelin-solidity/contracts/math/SafeMath.sol";
-import {RLPReader} from "solidity-rlp/contracts/RLPReader.sol";
-import {BytesLib} from "../../common/lib/BytesLib.sol";
 import {ECVerify} from "../../common/lib/ECVerify.sol";
 import {Merkle} from "../../common/lib/Merkle.sol";
 import {GovernanceLockable} from "../../common/mixin/GovernanceLockable.sol";
@@ -31,8 +29,6 @@ contract StakeManager is
 {
     using SafeMath for uint256;
     using Merkle for bytes32;
-    using RLPReader for bytes;
-    using RLPReader for RLPReader.RLPItem;
 
 
     struct UnsignedValidatorsContext {
@@ -296,21 +292,6 @@ contract StakeManager is
     function updateMinAmounts(uint256 _minDeposit, uint256 _minHeimdallFee) public onlyGovernance {
         minDeposit = _minDeposit;
         minHeimdallFee = _minHeimdallFee;
-    }
-
-    function drainValidatorShares(
-        uint256 validatorId,
-        address tokenAddr,
-        address payable destination,
-        uint256 amount
-    ) external onlyGovernance {
-        address contractAddr = validators[validatorId].contractAddress;
-        require(contractAddr != address(0x0));
-        IValidatorShare(contractAddr).drain(tokenAddr, destination, amount);
-    }
-
-    function drain(address destination, uint256 amount) external onlyGovernance {
-        _transferToken(destination, amount);
     }
 
     function reinitialize(
@@ -681,49 +662,7 @@ contract StakeManager is
     }
 
     function slash(bytes calldata _slashingInfoList) external returns (uint256) {
-        require(Registry(registry).getSlashingManagerAddress() == msg.sender, "Not slash manager");
-
-        RLPReader.RLPItem[] memory slashingInfoList = _slashingInfoList.toRlpItem().toList();
-        int256 valJailed;
-        uint256 jailedAmount;
-        uint256 totalAmount;
-        uint256 i;
-
-        for (; i < slashingInfoList.length; i++) {
-            RLPReader.RLPItem[] memory slashData = slashingInfoList[i].toList();
-
-            uint256 validatorId = slashData[0].toUint();
-            _updateRewards(validatorId);
-
-            uint256 _amount = slashData[1].toUint();
-            totalAmount = totalAmount.add(_amount);
-
-            address delegationContract = validators[validatorId].contractAddress;
-            if (delegationContract != address(0x0)) {
-                uint256 delSlashedAmount =
-                    IValidatorShare(delegationContract).slash(
-                        validators[validatorId].amount,
-                        validators[validatorId].delegatedAmount,
-                        _amount
-                    );
-                _amount = _amount.sub(delSlashedAmount);
-            }
-
-            uint256 validatorStakeSlashed = validators[validatorId].amount.sub(_amount);
-            validators[validatorId].amount = validatorStakeSlashed;
-
-            if (validatorStakeSlashed == 0) {
-                _unstake(validatorId, currentEpoch);
-            } else if (slashData[2].toBoolean()) {
-                jailedAmount = jailedAmount.add(_jail(validatorId, 1));
-                valJailed++;
-            }
-        }
-
-        //update timeline
-        updateTimeline(-int256(totalAmount.add(jailedAmount)), -valJailed, 0);
-
-        return totalAmount;
+        revert();
     }
 
     function unjail(uint256 validatorId) public onlyStaker(validatorId) {

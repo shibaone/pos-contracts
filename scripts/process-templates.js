@@ -2,7 +2,7 @@ const fs = require("fs").promises;
 const path = require("path");
 
 // Set default Bor chain id and allow overriding via command-line arguments
-const borChainId = process.argv[2] || "15001";
+const borChainId = process.argv[2] || "109";
 
 // Convert borChainId to hexadecimal and ensure it's an even-length string
 const borChainIdHex = parseInt(borChainId, 10).toString(16).toUpperCase();

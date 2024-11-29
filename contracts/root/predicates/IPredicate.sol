@@ -1,6 +1,6 @@
 pragma solidity ^0.5.2;
 
-import {RLPReader} from "solidity-rlp/contracts/RLPReader.sol";
+import {RLPReader} from "../../common/lib/RLPReader.sol";
 
 import {Common} from "../../common/lib/Common.sol";
 import {RLPEncode} from "../../common/lib/RLPEncode.sol";
@@ -96,6 +96,7 @@ contract PredicateUtils is ExitsDataStructure, ChainIdMixin {
             bytes32(txList[7].toUint()),
             bytes32(txList[8].toUint())
         );
+        require(signer != address(0), "Invalid signer");
     }
 
     function decodeExit(bytes memory data)
