@@ -19,7 +19,7 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "hardhat/=node_modules/hardhat/"
 ]
-fs_permissions = [{ access = "read", path = "./scripts/"}, { access = "read", path = "./test/"},  { access = "read", path = "./out/"}]
+fs_permissions = [{ access = "read", path = "./scripts/"}, { access = "read", path = "./test/"},  { access = "read", path = "./out/"}, { access = "read-write", path = "./scripts/contractAddresses.json" }]
 auto_detect_solc = true
 
 [invariant]
@@ -55,5 +55,9 @@ polygon_pos = { key = "${POLYGONSCAN_API_KEY}" }
 mumbai = { key = "${POLYGONSCAN_API_KEY}" }
 polygon_zkevm = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
 polygon_zkevm_testnet = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
+
+[fuzz]
+allowed-write-paths = ["scripts/"]
+
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config
