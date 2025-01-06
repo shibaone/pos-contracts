@@ -221,15 +221,15 @@ contract DeploymentScript is Script {
     vm.writeJson(json, path);
 
     //StakeManagerTestable deployment : 
-    stakeManagerTestable = StakeManagerTestable(payable(deployCode("out/StakeManagerTestable.sol/StakeManagerTestable.json")));
-    console.log("stakeManagerTestable : ", address(stakeManagerTestable));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "stakeManagerTestable",
-        address(stakeManagerTestable)
-    );
-    vm.writeJson(json, path);
+    // stakeManagerTestable = StakeManagerTestable(payable(deployCode("out/StakeManagerTestable.sol/StakeManagerTestable.json")));
+    // console.log("stakeManagerTestable : ", address(stakeManagerTestable));
+    //
+    // json = vm.serializeAddress(
+    //     "contracts",
+    //     "stakeManagerTestable",
+    //     address(stakeManagerTestable)
+    // );
+    // vm.writeJson(json, path);
 
     stakeManagerTest = StakeManagerTest(payable(deployCode("out/StakeManagerTest.sol/StakeManagerTest.json")));
     console.log("stakeManagerTest address : ", address(stakeManagerTest));
