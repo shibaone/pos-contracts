@@ -33,7 +33,9 @@ contract MaticStake is Script {
     console.log("StakeAmount : ", stakeAmount, " for validatorAccount : ", validatorAccount);
 
     StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManagerProxy"));
+    console.log("StakeManager address : ", address(stakeManager));
     TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".maticToken"));
+    console.log(address(maticToken));
     console.log("stakeToken : ", stakeManager.token());
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 

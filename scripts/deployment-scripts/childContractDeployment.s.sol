@@ -17,7 +17,7 @@ contract ChildContractDeploymentScript is Script {
      uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
 
     vm.startBroadcast(deployerPrivateKey);
-    string memory path = "scripts/contractAddresses.json";
+    string memory path = "contractAddresses.json";
     string memory json = vm.readFile(path);
     
     address maticWethAddress = vm.parseJsonAddress(json, ".maticWETH");

@@ -77,7 +77,7 @@ contract DeploymentScript is Script {
 
     // Governance deployment : 
     vm.startBroadcast(deployerPrivateKey);
-    string memory path = "scripts/contractAddresses.json";
+    string memory path = "contractAddresses.json";
 
     // Start with empty JSON object
     string memory json = "{}";
@@ -140,7 +140,7 @@ contract DeploymentScript is Script {
     console.log("Address of matic token : ", address(maticToken));
 
     json = vm.serializeAddress(
-        "contracts",
+        "root.contracts",
         "maticToken",
         address(maticToken)
     );
