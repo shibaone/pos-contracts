@@ -4,6 +4,8 @@ out
 contractAddresses.json
 .vscode
 
+broadcast/*
+
 
 # ignore generated files
 broadcast/*/*/dry-run

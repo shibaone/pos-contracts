@@ -8,7 +8,8 @@ import {StakeManager} from "../helpers/interfaces/StakeManager.generated.sol";
 
 contract MaticStake is Script {
 
-  string internal json;
+  string path = "contractAddresses.json";
+  string json = vm.readFile(path);
 
   function run() public {
 
@@ -16,9 +17,8 @@ contract MaticStake is Script {
 
     vm.startBroadcast(deployerPrivateKey);
     
-    string memory path = "scripts/contractAddresses.json";
-    json = vm.readFile(path);
     stake();
+    // topUpForFee();
 
     vm.stopBroadcast();
   }
@@ -32,23 +32,38 @@ contract MaticStake is Script {
 
     console.log("StakeAmount : ", stakeAmount, " for validatorAccount : ", validatorAccount);
 
-    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManagerProxy"));
+    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManager"));
     console.log("StakeManager address : ", address(stakeManager));
-    TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".maticToken"));
+    TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
     console.log(address(maticToken));
     console.log("stakeToken : ", stakeManager.token());
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 
     maticToken.approve(address(stakeManager), 10**20);
     console.log('sent approve tx, staking now...');
+    console.log("Current validator set size : ",stakeManager.currentValidatorSetSize());
     stakeManager.stakeFor(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 
 
   }
 
-  // function topUpForFee public() {
-  //   address stakeFor = vm.envAddress(validator1);
-  //
-  // }
+  function topUpForFee() public {
+    address stakeFor = vm.envAddress("VALIDATOR_1");
+    uint256 amount = 10**20;
+
+    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManagerProxy"));
+    TestToken rootToken = TestToken(vm.parseJsonAddress(json, ".maticToken"));
+    rootToken.approve(vm.parseJsonAddress(json, ".stakeManagerProxy"), amount);
+
+    console.log("Approved!, staking now...");
+
+    uint256 validatorId = stakeManager.signerToValidator(stakeFor);
+    console.log("Validator ID : ",validatorId);
+    stakeManager.topUpForFee(stakeFor, amount);
+
+    console.log("Success!");
+
+
+  }
 }

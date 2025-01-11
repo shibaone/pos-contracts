@@ -19,7 +19,7 @@ remappings = [
   "forge-std/=lib/forge-std/src/",
   "hardhat/=node_modules/hardhat/"
 ]
-fs_permissions = [{ access = "read", path = "./scripts/"}, { access = "read", path = "./test/"},  { access = "read", path = "./out/"}, { access = "read-write", path = "./contractAddresses.json" }]
+fs_permissions = [{ access = "read", path = "./scripts/"}, { access = "read", path = "./test/"},  { access = "read", path = "./out/"}, { access = "read-write", path = "./contractAddresses.json" }, {access = "read-write", path = "./contractAddresses1.json"}]
 auto_detect_solc = true
 
 [invariant]

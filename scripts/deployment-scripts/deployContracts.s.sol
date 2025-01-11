@@ -80,225 +80,84 @@ contract DeploymentScript is Script {
     string memory path = "contractAddresses.json";
 
     // Start with empty JSON object
-    string memory json = "{}";
+    string memory json = '{}';
+    string memory rootJson = 'root_json';
+    string memory tokenJson = 'token_json';
 
     governance = Governance(deployCode("out/Governance.sol/Governance.json"));
-    json = vm.serializeAddress(
-        "contracts",
-        "governance",
-        address(governance)
-    );
-    vm.writeJson(json, path);
-
-    console.log("Governance contract address : ", address(governance));
-
+    vm.serializeAddress(rootJson, "Governance", address(governance));
     // Governance Proxy deployment : 
     governanceProxy = GovernanceProxy(payable(deployCode("out/GovernanceProxy.sol/GovernanceProxy.json", abi.encode(address(governance)))));
-    console.log("GovernanceProxy contract address : ", address(governanceProxy)); 
-    json = vm.serializeAddress(
-        "contracts",
-        "governanceProxy",
-        address(governanceProxy)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "GovernanceProxy", address(governanceProxy));
 
     //registry deployment : 
     registry = Registry((deployCode("out/Registry.sol/Registry.json", abi.encode(address(governanceProxy)))));
-    console.log("Registry address : ", address(registry));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "registry",
-        address(registry)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "Registry", address(registry));
 
     // ValidatorShareFactory deployment : 
     validatorShareFactory = ValidatorShareFactory(payable(deployCode("out/ValidatorShareFactory.sol/ValidatorShareFactory.json")));
-    console.log("ValidatorShareFactory address : ", address(validatorShareFactory));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "validatorShareFactory",
-        address(validatorShareFactory)
-    );
-    vm.writeJson(json, path);
 
     // ValidatorShare deployment 
     validatorShare = ValidatorShare(payable(deployCode("out/ValidatorShare.sol/ValidatorShare.json")));
-    console.log("ValidatorShare address : ", address(validatorShare));
 
-    json = vm.serializeAddress(
-        "contracts",
-        "validatorShare",
-        address(validatorShare)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "ValidatorShare", address(validatorShare));
 
     // Deploying test token 
     maticToken = TestToken(payable(deployCode("out/TestToken.sol/TestToken.json", abi.encode('MATIC', 'MATIC'))));
-    console.log("Address of matic token : ", address(maticToken));
-
-    json = vm.serializeAddress(
-        "root.contracts",
-        "maticToken",
-        address(maticToken)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(tokenJson, "MaticToken", address(maticToken));
     
     erc20Token = TestToken(payable(deployCode("out/TestToken.sol/TestToken.json", abi.encode('Test ERC20', 'TEST20'))));
+    vm.serializeAddress(tokenJson, "TestToken", address(erc20Token));
   
-    json = vm.serializeAddress(
-        "contracts",
-        "erc20Token",
-        address(erc20Token)
-    );
-    vm.writeJson(json, path);
-
     rootERC721 = RootERC721(payable(deployCode("out/RootERC721.sol/RootERC721.json", abi.encode('Test ERC721', 'TST721'))));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "rootERC721",
-        address(rootERC721)
-    );
-    vm.writeJson(json, path);
-
-    console.log("rootERC721 : ", address(rootERC721));
+    vm.serializeAddress(tokenJson, "RootERC721", address(rootERC721));
 
     // StakingInfo deployment : 
     stakingInfo = StakingInfo(payable(deployCode("out/StakingInfo.sol/StakingInfo.json", abi.encode(address(registry)))));
-    console.log("StakingInfo Address" ,address(stakingInfo));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "StakingInfo",
-        address(stakingInfo)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "StakingInfo", address(stakingInfo));
 
     // StakingNFT deployment : 
     stakingNFT = StakingNFT(payable(deployCode("out/StakingNFT.sol/StakingNFT.json", abi.encode('Matic Validator', 'MV'))));
-    console.log("StakingNFT address : " ,address(stakingNFT));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "stakingNFT",
-        address(stakingNFT)
-    );
-    vm.writeJson(json, path);
     
     //RootChain deployment : 
     rootChain = RootChain(payable(deployCode("out/RootChain.sol/RootChain.json")));
-    console.log("RootChain address : ", address(rootChain));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "rootChain",
-        address(rootChain)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "RootChain", address(rootChain));
 
     rootChainProxy = RootChainProxy(payable(deployCode("out/RootChainProxy.sol/RootChainProxy.json", abi.encode(address(rootChain), address(registry), vm.envString("HEIMDALL_ID")))));
-    console.log("rootChainProxy address : ", address(rootChainProxy));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "rootChainProxy",
-        address(rootChainProxy)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "RootChainProxy", address(rootChainProxy));
 
     //StateSender deployment : 
     stateSender = StateSender(payable(deployCode("out/StateSender.sol/StateSender.json")));
-    console.log("StateSender address : ", address(stateSender));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "stateSender",
-        address(stateSender)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "StateSender", address(stateSender));
 
     //StakeManagerTestable deployment : 
     // stakeManagerTestable = StakeManagerTestable(payable(deployCode("out/StakeManagerTestable.sol/StakeManagerTestable.json")));
-    // console.log("stakeManagerTestable : ", address(stakeManagerTestable));
-    //
-    // json = vm.serializeAddress(
-    //     "contracts",
-    //     "stakeManagerTestable",
-    //     address(stakeManagerTestable)
-    // );
-    // vm.writeJson(json, path);
 
     stakeManagerTest = StakeManagerTest(payable(deployCode("out/StakeManagerTest.sol/StakeManagerTest.json")));
-    console.log("stakeManagerTest address : ", address(stakeManagerTest));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "stakeManagerTest",
-        address(stakeManagerTest)
-    );
-    vm.writeJson(json, path);
 
     // DepositManager deployment : 
     depositManager = DepositManager(payable(deployCode("out/DepositManager.sol/DepositManager.json")));
-    console.log("Deposit Manager Address : ", address(depositManager));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "depositManager",
-        address(depositManager)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "DepositManager", address(depositManager));
     
     depositManagerProxy = DepositManagerProxy(payable(deployCode("out/DepositManagerProxy.sol/DepositManagerProxy.json", abi.encode(address(depositManager), address(registry), address(rootChainProxy), address(governanceProxy)))));
-    console.log("DepositManagerProxy address : ", address(depositManagerProxy));
-    
-    json = vm.serializeAddress(
-        "contracts",
-        "depositManagerProxy",
-        address(depositManagerProxy)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "DepositManagerProxy", address(depositManagerProxy));
 
     // ExitNFT deployment : 
     exitNFT = ExitNFT(payable(deployCode("out/ExitNFT.sol/ExitNFT.json", abi.encode(address(registry)))));
-    console.log("ExitNFT address : ", address(exitNFT));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "exitNFT",
-        address(exitNFT)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "ExitNFT", address(exitNFT));
 
     // WithdrawManager Deployment : 
     withdrawManager = WithdrawManager(payable(deployCode("out/WithdrawManager.sol/WithdrawManager.json")));
-    console.log("withdrawManager address : ", address(withdrawManager));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "withdrawManager",
-        address(withdrawManager)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "WithdrawManager", address(withdrawManager));
 
     withdrawManagerProxy = WithdrawManagerProxy(payable(deployCode("out/WithdrawManagerProxy.sol/WithdrawManagerProxy.json", abi.encode(address(withdrawManager), address(registry), address(rootChainProxy), address(exitNFT)))));
-    console.log("withdrawManagerProxy address : ", address(withdrawManagerProxy));
-
-    json = vm.serializeAddress(
-        "contracts",
-        "withdrawManagerProxy",
-        address(withdrawManagerProxy)
-    );
-    vm.writeJson(json, path);
-    
+    vm.serializeAddress(rootJson, "WithdrawManagerProxy", address(withdrawManagerProxy));
     //EventsHub Deployment : 
     eventsHubImpl = EventsHub(payable(deployCode("out/EventsHub.sol/EventsHub.json")));
-    console.log("EventsHub address : ", address(eventsHubImpl));
 
     proxy = EventsHubProxy(payable(deployCode("out/EventsHubProxy.sol/EventsHubProxy.json", abi.encode(ZeroAddress))));
+
+    vm.serializeAddress(rootJson, "EventsHubProxy", address(proxy));
     console.log("proxy address : ", address(proxy));
 
     bytes memory initCallData = abi.encodeWithSelector(eventsHubImpl.initialize.selector, address(registry));
@@ -307,25 +166,12 @@ contract DeploymentScript is Script {
 
     // StakeManager deployment : 
     stakeManager = StakeManager(payable(deployCode("out/StakeManager.sol/StakeManager.json")));
-    console.log("StakeManager address : ", address(stakeManager));
-    json = vm.serializeAddress(
-        "contracts",
-        "stakeManager",
-        address(stakeManager)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "StakeManager", address(stakeManager));
 
     stakeManagerProxy = StakeManagerProxy(payable(deployCode("out/StakeManagerProxy.sol/StakeManagerProxy.json", abi.encode(ZeroAddress))));
-    console.log("StakeManagerProxy address : ", address(stakeManagerProxy));
-    json = vm.serializeAddress(
-        "contracts",
-        "stakeManagerProxy",
-        address(stakeManagerProxy)
-    );
-    vm.writeJson(json, path);
+    vm.serializeAddress(rootJson, "StakeManagerProxy", address(stakeManagerProxy));
 
     auctionImpl = StakeManagerExtension(payable(deployCode("out/StakeManagerExtension.sol/StakeManagerExtension.json")));
-    console.log("Auction Impl : ", address(auctionImpl));
 
     bytes memory stakeManagerProxyCallData = abi.encodeWithSelector(stakeManager.initialize.selector, address(registry), address(rootChainProxy), address(maticToken), address(stakingNFT), address(stakingInfo), address(validatorShareFactory), address(governanceProxy), address(0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266), address(auctionImpl));
     
@@ -333,20 +179,14 @@ contract DeploymentScript is Script {
 
     slashingManager = SlashingManager(payable(deployCode("out/SlashingManager.sol/SlashingManager.json", abi.encode(address(registry), address(stakingInfo), vm.envString("HEIMDALL_ID")))));
 
-    console.log("SlashingManager address : ", address(slashingManager));
+    vm.serializeAddress(rootJson, "SlashingManager", address(slashingManager));
 
     // flag 
     stakingNFT.transferOwnership(address(stakeManagerProxy));
 
     maticWETH = MaticWETH(payable(deployCode("out/MaticWETH.sol/MaticWETH.json")));
-    console.log("MaticWETH address : ", address(maticWETH));
+    string memory outToken = vm.serializeAddress(tokenJson, "MaticWeth", address(maticWETH));
 
-    json = vm.serializeAddress(
-        "contracts",
-        "maticWETH",
-        address(maticWETH)
-    );
-    vm.writeJson(json, path);
 
    // ERC Predicate : 
 
@@ -359,7 +199,20 @@ contract DeploymentScript is Script {
    // mintableERC721Predicate = MintableERC721Predicate(payable(deployCode("out/MintableERC721Predicate.sol/MintableERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
    // console.log("MintableERC721Predicate address : ", address(mintableERC721Predicate));
 
+   string memory outRoot = vm.serializeString(rootJson, "tokens", outToken);
+   // fJson = vm.serializeString(json, "token", tokenJson);
+   string memory fJson = vm.serializeString(json, "root", outRoot);
+   
+   vm.writeJson(fJson, path);
+   
 
+   string memory json0 = '{}';
+   vm.serializeAddress(json0, "governance", address(governance));
+   string memory json1 = 'different';
+   string memory out = vm.serializeAddress(json1, "maticToken", address(maticToken));
+   // vm.writeJson(json1, "./contractAddresses1.json");
+   string memory finalJson = vm.serializeString(json0, "tokens", out);
+   vm.writeJson(finalJson, "./contractAddresses1.json");
 
 
     vm.stopBroadcast();
