@@ -33,6 +33,8 @@ import {ERC20Predicate} from "../helpers/interfaces/ERC20Predicate.generated.sol
 import {ERC721Predicate} from "../helpers/interfaces/ERC721Predicate.generated.sol";
 import {MintableERC721Predicate} from "../helpers/interfaces/MintableERC721Predicate.generated.sol";
 import {Marketplace} from "../helpers/interfaces/Marketplace.generated.sol";
+import {MarketplacePredicate} from "../helpers/interfaces/MarketplacePredicate.generated.sol";
+
 
 
 
@@ -198,12 +200,16 @@ contract DeploymentScript is Script {
 
    //
    erc721Predicate = ERC721Predicate(payable(deployCode("out/ERC721Predicate.sol/ERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
-   string memory outPredicate = vm.serializeAddress(predicateJson, "ERC721Predicate", address(erc721Predicate));
+   vm.serializeAddress(predicateJson, "ERC721Predicate", address(erc721Predicate));
 
    mintableERC721Predicate = MintableERC721Predicate(payable(deployCode("out/MintableERC721Predicate.sol/MintableERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
 
    marketplace = Marketplace(payable(deployCode("out/Marketplace.sol/Marketplace.json")));
    console.log("MarketPlace address : ", address(marketplace));
+
+   MarketplacePredicate marketplacePredicate = MarketplacePredicate(deployCode("out/MarketplacePredicate.sol/MarketplacePredicate.json", abi.encode(address(rootChain), address(withdrawManagerProxy), address(registry))));
+   string memory outPredicate = vm.serializeAddress(predicateJson, "MarketplacePredicate", address(marketplacePredicate));
+
 
    string memory outRoot = vm.serializeString(rootJson, "tokens", outToken);
    outRoot = vm.serializeString(rootJson, "predicates", outPredicate);

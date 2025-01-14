@@ -33,7 +33,7 @@ contract MaticStake is Script {
 
     console.log("StakeAmount : ", stakeAmount, " for validatorAccount : ", validatorAccount);
 
-    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManager"));
+    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManagerProxy"));
     console.log("StakeManager address : ", address(stakeManager));
     TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
     console.log("Matic Token : ", address(maticToken));
@@ -60,7 +60,7 @@ console.log("Token balance:", balance);
     address stakeFor = vm.envAddress("VALIDATOR_1");
     uint256 amount = 10**20;
 
-    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManagerProxy"));
+    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManager"));
     TestToken rootToken = TestToken(vm.parseJsonAddress(json, ".maticToken"));
     rootToken.approve(vm.parseJsonAddress(json, ".stakeManagerProxy"), amount);
 

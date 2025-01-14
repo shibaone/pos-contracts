@@ -57,6 +57,10 @@ contract InitializeStateScript is Script {
             (vm.parseJsonAddress(json, ".root.predicates.ERC721Predicate"))
         );
     governance.update(registryAddress, erc721PredicateData);
+
+    // bytes memory marketPlacePredicateData = abi.encodeCall(registry.addPredicate, (vm.parseJsonAddress(json, ".root.predicates.MarketPlacePredicate"), 3));
+    // // bytes memory marketPlacePredicateData = abi.encodeCall(registry.addPredicate, ((vm.parseJsonAddress(json, ".root.predicates.MarketPlacePredicate"), 3)));
+    // governance.update(registryAddress, marketPlacePredicateData);
     
 
     vm.stopBroadcast();

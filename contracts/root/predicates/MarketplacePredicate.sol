@@ -347,29 +347,55 @@ contract MarketplacePredicate is PredicateUtils {
         ) = abi.decode(_preState, (uint256, uint256, address, address));
     }
 
-    function processExitTx(bytes memory exitTx, address tradeParticipant)
-        internal
-        pure
-        returns (ExitTxData memory txData)
-    {
-        RLPReader.RLPItem[] memory txList = exitTx.toRlpItem().toList();
-        require(txList.length == 9, "MALFORMED_WITHDRAW_TX");
-        address marketplaceContract = RLPReader.toAddress(txList[3]); // "to" field in tx
-        (bytes4 funcSig, ExecuteOrderData memory executeOrder) = decodeExecuteOrder(
-            RLPReader.toBytes(txList[5])
-        );
-        require(
-            funcSig == EXECUTE_ORDER_FUNC_SIG,
-            "Not executeOrder transaction"
-        );
-        txData = verifySignatures(
-            executeOrder,
-            marketplaceContract,
-            tradeParticipant
-        );
-        (, txData.txHash) = getAddressFromTx(txList);
+// First, let's define the getAddressFromTx function properly
+function getAddressFromTx(RLPReader.RLPItem[] memory txList)
+    internal
+    pure
+    returns (address, bytes32)
+{
+    // Encode the entire RLP list back to bytes
+    bytes memory encoded = RLPReader.toBytes(txList[0]);
+    for (uint i = 1; i < txList.length; i++) {
+        encoded = abi.encodePacked(encoded, RLPReader.toBytes(txList[i]));
     }
+    
+    // Calculate the hash and address
+    bytes32 txHash = keccak256(encoded);
+    address sender = address(uint160(uint256(keccak256(encoded))));
+    
+    return (sender, txHash);
+}
 
+// Then modify your processExitTx function to handle the RLP data correctly
+function processExitTx(bytes memory exitTx, address tradeParticipant)
+    internal
+    pure
+    returns (ExitTxData memory txData)
+{
+    RLPReader.RLPItem[] memory txList = exitTx.toRlpItem().toList();
+    require(txList.length == 9, "MALFORMED_WITHDRAW_TX");
+    
+    address marketplaceContract = RLPReader.toAddress(txList[3]); // "to" field in tx
+    
+    (bytes4 funcSig, ExecuteOrderData memory executeOrder) = decodeExecuteOrder(
+        RLPReader.toBytes(txList[5])
+    );
+    
+    require(
+        funcSig == EXECUTE_ORDER_FUNC_SIG,
+        "Not executeOrder transaction"
+    );
+    
+    txData = verifySignatures(
+        executeOrder,
+        marketplaceContract,
+        tradeParticipant
+    );
+    
+    // Use the modified getAddressFromTx
+    (address sender, bytes32 hash) = getAddressFromTx(txList);
+    txData.txHash = hash;
+}
     function verifySignatures(
         ExecuteOrderData memory executeOrder,
         address marketplaceContract,
