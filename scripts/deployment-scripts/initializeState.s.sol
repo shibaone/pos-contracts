@@ -45,6 +45,18 @@ contract InitializeStateScript is Script {
 
     console.log("Success");
 
+
+    bytes memory erc20PredicateData = abi.encodeCall(
+            registry.addErc20Predicate,
+            (vm.parseJsonAddress(json, ".root.predicates.ERC20Predicate"))
+        );
+    governance.update(registryAddress, erc20PredicateData);
+
+    bytes memory erc721PredicateData = abi.encodeCall(
+            registry.addErc721Predicate,
+            (vm.parseJsonAddress(json, ".root.predicates.ERC721Predicate"))
+        );
+    governance.update(registryAddress, erc721PredicateData);
     
 
     vm.stopBroadcast();

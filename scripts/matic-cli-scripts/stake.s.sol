@@ -5,6 +5,7 @@ import {Script, stdJson, console} from "forge-std/Script.sol";
 
 import {TestToken} from "../helpers/interfaces/TestToken.generated.sol";
 import {StakeManager} from "../helpers/interfaces/StakeManager.generated.sol";
+import {IERC20} from "../helpers/interfaces/IERC20.generated.sol";
 
 contract MaticStake is Script {
 
@@ -26,7 +27,7 @@ contract MaticStake is Script {
   function stake() public {
     
     address validatorAccount = vm.envAddress("VALIDATOR_1");
-    bytes memory pubkey = "0x038318535b54105d4a7aae60c08fc45f9687181b4fdfc625bd1a753fa7397fed75";
+    bytes memory pubkey = "04da54a5ca8cd829dcf9dd3d1f1bd1c06f36598f2f70f25f0bdb55e5fcb71aa9e48e71fe22508a08cc559b7842ff43c11a09bc934c0b91f0468cdca1634c126340";
     uint256 stakeAmount = 10**19;
     uint256 heimdallFee = 10**19;
 
@@ -35,13 +36,20 @@ contract MaticStake is Script {
     StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManager"));
     console.log("StakeManager address : ", address(stakeManager));
     TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
-    console.log(address(maticToken));
+    console.log("Matic Token : ", address(maticToken));
     console.log("stakeToken : ", stakeManager.token());
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 
     maticToken.approve(address(stakeManager), 10**20);
     console.log('sent approve tx, staking now...');
-    console.log("Current validator set size : ",stakeManager.currentValidatorSetSize());
+    
+    IERC20 token = IERC20(stakeManager.token());
+uint256 allowance = token.allowance(msg.sender, address(stakeManager));
+uint256 balance = token.balanceOf(msg.sender);
+console.log("Token allowance:", allowance);
+console.log("Token balance:", balance);
+
+
     stakeManager.stakeFor(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 

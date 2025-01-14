@@ -29,9 +29,10 @@ import {StakeManagerProxy} from "../helpers/interfaces/StakeManagerProxy.generat
 import {StakeManagerExtension} from "../helpers/interfaces/StakeManagerExtension.generated.sol";
 import {SlashingManager} from "../helpers/interfaces/SlashingManager.generated.sol";
 import {MaticWETH} from "../helpers/interfaces/MaticWETH.generated.sol";
-// import {ERC20Predicate} from "../helpers/interfaces/ERC20Predicate.generated.sol";
-// import {ERC721Predicate} from "../helpers/interfaces/ERC721Predicate.generated.sol";
-// import {MintableERC721Predicate} from "../helpers/interfaces/MintableERC721Predicate.generated.sol";
+import {ERC20Predicate} from "../helpers/interfaces/ERC20Predicate.generated.sol";
+import {ERC721Predicate} from "../helpers/interfaces/ERC721Predicate.generated.sol";
+import {MintableERC721Predicate} from "../helpers/interfaces/MintableERC721Predicate.generated.sol";
+import {Marketplace} from "../helpers/interfaces/Marketplace.generated.sol";
 
 
 
@@ -63,9 +64,10 @@ contract DeploymentScript is Script {
   StakeManagerExtension auctionImpl;
   SlashingManager slashingManager;
   MaticWETH maticWETH;
-  // ERC20Predicate erc20Predicate;
-  // ERC721Predicate erc721Predicate;
-  // MintableERC721Predicate mintableERC721Predicate;
+  ERC20Predicate erc20Predicate;
+  ERC721Predicate erc721Predicate;
+  MintableERC721Predicate mintableERC721Predicate;
+  Marketplace marketplace;
 
 
   address ZeroAddress = 0x0000000000000000000000000000000000000000;
@@ -83,6 +85,7 @@ contract DeploymentScript is Script {
     string memory json = '{}';
     string memory rootJson = 'root_json';
     string memory tokenJson = 'token_json';
+    string memory predicateJson = 'predicate_json';
 
     governance = Governance(deployCode("out/Governance.sol/Governance.json"));
     vm.serializeAddress(rootJson, "Governance", address(governance));
@@ -190,18 +193,22 @@ contract DeploymentScript is Script {
 
    // ERC Predicate : 
 
-   // erc20Predicate = ERC20Predicate(payable(deployCode("out/ERC20Predicate.sol/ERC20Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy), address(registry)))));
-   // console.log("ERC20Predicate address : ", address(erc20Predicate));
+   erc20Predicate = ERC20Predicate(payable(deployCode("out/ERC20Predicate.sol/ERC20Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy), address(registry)))));
+   vm.serializeAddress(predicateJson, "ERC20Predicate", address(erc20Predicate));
+
    //
-   // erc721Predicate = ERC721Predicate(payable(deployCode("out/ERC721Predicate.sol/ERC721Predicate.json", abi.encode(address(withdrawManagerProxy), addres(depositManagerProxy)))));
-   // console.log("ERC721Predicate address : ", address(erc721Predicate));
-   //
-   // mintableERC721Predicate = MintableERC721Predicate(payable(deployCode("out/MintableERC721Predicate.sol/MintableERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
-   // console.log("MintableERC721Predicate address : ", address(mintableERC721Predicate));
+   erc721Predicate = ERC721Predicate(payable(deployCode("out/ERC721Predicate.sol/ERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
+   string memory outPredicate = vm.serializeAddress(predicateJson, "ERC721Predicate", address(erc721Predicate));
+
+   mintableERC721Predicate = MintableERC721Predicate(payable(deployCode("out/MintableERC721Predicate.sol/MintableERC721Predicate.json", abi.encode(address(withdrawManagerProxy), address(depositManagerProxy)))));
+
+   marketplace = Marketplace(payable(deployCode("out/Marketplace.sol/Marketplace.json")));
+   console.log("MarketPlace address : ", address(marketplace));
 
    string memory outRoot = vm.serializeString(rootJson, "tokens", outToken);
-   // fJson = vm.serializeString(json, "token", tokenJson);
+   outRoot = vm.serializeString(rootJson, "predicates", outPredicate);
    string memory fJson = vm.serializeString(json, "root", outRoot);
+
    
    vm.writeJson(fJson, path);
    

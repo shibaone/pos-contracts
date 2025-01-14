@@ -10,6 +10,7 @@ cache_path = 'forge-cache'
 verbosity = 2
 memory_limit = 40003554432
 gas_limit = "18446744073709551615"
+libraries = ["contracts/common/lib/Common.sol:Common:0x5FbDB2315678afecb367f032d93F642f64180aa3"] 
 
 ffi = true
 remappings = [
