@@ -217,15 +217,6 @@ contract DeploymentScript is Script {
    vm.writeJson(fJson, path);
    
 
-   string memory json0 = '{}';
-   vm.serializeAddress(json0, "governance", address(governance));
-   string memory json1 = 'different';
-   string memory out = vm.serializeAddress(json1, "maticToken", address(maticToken));
-   // vm.writeJson(json1, "./contractAddresses1.json");
-   string memory finalJson = vm.serializeString(json0, "tokens", out);
-   vm.writeJson(finalJson, "./contractAddresses1.json");
-
-
     vm.stopBroadcast();
   }
 }

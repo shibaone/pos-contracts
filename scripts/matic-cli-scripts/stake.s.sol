@@ -14,7 +14,7 @@ contract MaticStake is Script {
 
   function run() public {
 
-     uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY"); 
 
     vm.startBroadcast(deployerPrivateKey);
     
@@ -26,33 +26,25 @@ contract MaticStake is Script {
 
   function stake() public {
     
-    address validatorAccount = vm.envAddress("VALIDATOR_1");
-    // bytes memory pubkey = "04da54a5ca8cd829dcf9dd3d1f1bd1c06f36598f2f70f25f0bdb55e5fcb71aa9e48e71fe22508a08cc559b7842ff43c11a09bc934c0b91f0468cdca1634c126340";
-    bytes memory pubkey = hex"4e02c8e34f394783aa141b25058db45cd3530010bac2af4192967d847b36449aaef2117b8d9cb5b947e38cd786a33f5dc5c3f7b585860dfb505bc440d06e3620";
-    uint256 stakeAmount = 10**19;
-    uint256 heimdallFee = 10**19;
+    address validatorAccount = vm.envAddress("VALIDATOR");
+    bytes memory pubkey = vm.envBytes("VALIDATOR_PUB_KEY");
+    uint256 stakeAmount = vm.envUint("STAKE_AMOUNT");
+    uint256 heimdallFee = vm.envUint("HEIMDALL_FEE");
 
     console.log("StakeAmount : ", stakeAmount, " for validatorAccount : ", validatorAccount);
 
     StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManagerProxy"));
     console.log("StakeManager address : ", address(stakeManager));
     TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
-    console.log("Matic Token : ", address(maticToken));
-    console.log("stakeToken : ", stakeManager.token());
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 
     maticToken.approve(address(stakeManager), 10**20);
     console.log('sent approve tx, staking now...');
     
-    IERC20 token = IERC20(stakeManager.token());
-uint256 allowance = token.allowance(msg.sender, address(stakeManager));
-uint256 balance = token.balanceOf(msg.sender);
-console.log("Token allowance:", allowance);
-console.log("Token balance:", balance);
-console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
+    console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
 
 
-    // stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
+    stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 
 
