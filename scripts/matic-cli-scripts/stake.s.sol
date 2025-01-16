@@ -27,7 +27,8 @@ contract MaticStake is Script {
   function stake() public {
     
     address validatorAccount = vm.envAddress("VALIDATOR_1");
-    bytes memory pubkey = "04da54a5ca8cd829dcf9dd3d1f1bd1c06f36598f2f70f25f0bdb55e5fcb71aa9e48e71fe22508a08cc559b7842ff43c11a09bc934c0b91f0468cdca1634c126340";
+    // bytes memory pubkey = "04da54a5ca8cd829dcf9dd3d1f1bd1c06f36598f2f70f25f0bdb55e5fcb71aa9e48e71fe22508a08cc559b7842ff43c11a09bc934c0b91f0468cdca1634c126340";
+    bytes memory pubkey = hex"4e02c8e34f394783aa141b25058db45cd3530010bac2af4192967d847b36449aaef2117b8d9cb5b947e38cd786a33f5dc5c3f7b585860dfb505bc440d06e3620";
     uint256 stakeAmount = 10**19;
     uint256 heimdallFee = 10**19;
 
@@ -48,9 +49,10 @@ uint256 allowance = token.allowance(msg.sender, address(stakeManager));
 uint256 balance = token.balanceOf(msg.sender);
 console.log("Token allowance:", allowance);
 console.log("Token balance:", balance);
+console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
 
 
-    stakeManager.stakeFor(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
+    // stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 
 
