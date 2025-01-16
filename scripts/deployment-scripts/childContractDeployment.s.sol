@@ -14,7 +14,7 @@ contract ChildContractDeploymentScript is Script {
   ChildTokenProxy childMaticWethProxy;
 
   function run() public {
-     uint256 deployerPrivateKey = 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80;
+    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY"); 
 
     vm.startBroadcast(deployerPrivateKey);
     string memory path = "contractAddresses.json";
