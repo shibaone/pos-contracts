@@ -7,39 +7,35 @@ import {TestToken} from "../helpers/interfaces/TestToken.generated.sol";
 import {StakeManager} from "../helpers/interfaces/StakeManager.generated.sol";
 import {IERC20} from "../helpers/interfaces/IERC20.generated.sol";
 
-contract MaticStake is Script {
+contract MaticStakeTest is Script {
 
   string path = "contractAddresses.json";
   string json = vm.readFile(path);
 
-  function run(address validatorAccount, bytes memory pubkey, uint256 stakeAmount, uint256 heimdallFee) public {
+  function run() public {
 
     uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY"); 
 
     vm.startBroadcast(deployerPrivateKey);
     
-    stake(validatorAccount, pubkey, stakeAmount, heimdallFee);
+    stake();
     // topUpForFee();
 
     vm.stopBroadcast();
   }
 
-  function stake(address _validatorAccount, bytes memory _pubkey, uint256 _stakeAmount, uint256 _heimdallFee) public {
+  function stake() public {
     
-    // address validatorAccount = vm.envAddress("VALIDATOR");
-    // bytes memory pubkey = vm.envBytes("VALIDATOR_PUB_KEY");
-    // uint256 stakeAmount = vm.envUint("STAKE_AMOUNT");
-    // uint256 heimdallFee = vm.envUint("HEIMDALL_FEE");
-    address validatorAccount = _validatorAccount;
-    bytes memory pubkey = _pubkey;
-    uint256 stakeAmount = _stakeAmount;
-    uint256 heimdallFee = _heimdallFee;
+    address validatorAccount = vm.envAddress("VALIDATOR");
+    bytes memory pubkey = vm.envBytes("VALIDATOR_PUB_KEY");
+    uint256 stakeAmount = vm.envUint("STAKE_AMOUNT");
+    uint256 heimdallFee = vm.envUint("HEIMDALL_FEE");
 
     console.log("StakeAmount : ", stakeAmount, " for validatorAccount : ", validatorAccount);
 
-    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".root.StakeManagerProxy"));
+    StakeManager stakeManager = StakeManager(0x4AE8f648B1Ec892B6cc68C89cc088583964d08bE);
     console.log("StakeManager address : ", address(stakeManager));
-    TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
+    TestToken maticToken = TestToken(0x3fd0A53F4Bf853985a95F4Eb3F9C9FDE1F8e2b53);
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 
     maticToken.approve(address(stakeManager), 10**20);
@@ -48,7 +44,7 @@ contract MaticStake is Script {
     console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
 
 
-    // stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
+    stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 
 
