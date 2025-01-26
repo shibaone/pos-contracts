@@ -48,7 +48,7 @@ contract MaticStake is Script {
     console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
 
 
-    // stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
+    stakeManager.stakeForPOL(validatorAccount, stakeAmount, heimdallFee, true, pubkey);
 
 
 
