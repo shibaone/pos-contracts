@@ -48,14 +48,14 @@ mumbai = "https://polygon-mumbai.infura.io/v3/${INFURA_TOKEN}"
 polygon_zkevm = "https://zkevm-rpc.com"
 polygon_zkevm_testnet = "https://rpc.public.zkevm-test.net"
 
-[etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
-goerli = { key = "${ETHERSCAN_API_KEY}" }
-sepolia = { key = "${ETHERSCAN_API_KEY}" }
-polygon_pos = { key = "${POLYGONSCAN_API_KEY}" }
-mumbai = { key = "${POLYGONSCAN_API_KEY}" }
-polygon_zkevm = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
-polygon_zkevm_testnet = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
+# [etherscan]
+# mainnet = { key = "${ETHERSCAN_API_KEY}" }
+# goerli = { key = "${ETHERSCAN_API_KEY}" }
+# sepolia = { key = "${ETHERSCAN_API_KEY}" }
+# polygon_pos = { key = "${POLYGONSCAN_API_KEY}" }
+# mumbai = { key = "${POLYGONSCAN_API_KEY}" }
+# polygon_zkevm = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
+# polygon_zkevm_testnet = { key = "${POLYGONSCAN_ZKEVM_API_KEY}" }
 
 [fuzz]
 allowed-write-paths = ["scripts/"]
