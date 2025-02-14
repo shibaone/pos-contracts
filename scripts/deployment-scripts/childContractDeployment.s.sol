@@ -23,7 +23,7 @@ contract ChildContractDeploymentScript is Script {
     string memory childTokenJson = 'child_token';
     
     address maticWethAddress = vm.parseJsonAddress(json, ".root.tokens.MaticWeth");
-    
+    address maticRootAddress = vm.parseJsonAddress(json, ".root.tokens.MaticToken");
 
     childChain = ChildChain(payable(deployCode("out/ChildChain.sol/ChildChain.json")));
     vm.serializeAddress(childJson, "ChildChain", address(childChain));
@@ -42,8 +42,12 @@ contract ChildContractDeploymentScript is Script {
     ChildERC20Proxified childMaticWeth = ChildERC20Proxified(address(childMaticWethProxy));
     console.log("Abstraction successful!");
 
+    MRC20 childMatic = MRC20(0x0000000000000000000000000000000000001010);
     vm.serializeAddress(childTokenJson, "MaticWeth", address(childMaticWeth));
-    vm.serializeAddress(childTokenJson, "MaticToken", 0x0000000000000000000000000000000000001010);
+    vm.serializeAddress(childTokenJson, "MaticToken", address(childMatic));
+
+    // init genesis matic
+    childMatic.initialize(address(childChain), maticRootAddress);
 
     // first parameter should be MaticWeth Address. 
     childMaticWeth.initialize(maticWethAddress, 'Eth on Matic', 'ETH', 18);
@@ -51,6 +55,9 @@ contract ChildContractDeploymentScript is Script {
 
     childMaticWeth.changeChildChain(address(childChain));
     console.log("Child MaticWeth child chain updated");
+
+    childChain.mapToken(maticRootAddress, address(childMatic), false);
+    console.log("Root and child Matic contracts mapped");
 
     // first address should be MaticWeth address : 
     childChain.mapToken(maticWethAddress, address(childMaticWeth), false);
