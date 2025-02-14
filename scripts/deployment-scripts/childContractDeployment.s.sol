@@ -7,6 +7,7 @@ import {ChildChain} from "../helpers/interfaces/ChildChain.generated.sol";
 import {ChildERC20Proxified} from "../helpers/interfaces/ChildERC20Proxified.generated.sol";
 import {ChildTokenProxy} from "../helpers/interfaces/ChildTokenProxy.generated.sol";
 import {ChildERC721Proxified} from "../helpers/interfaces/ChildERC721Proxified.generated.sol";
+import {MRC20} from "../helpers/interfaces/MRC20.generated.sol";
 
 contract ChildContractDeploymentScript is Script {
   ChildChain childChain; 
