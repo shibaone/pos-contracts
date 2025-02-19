@@ -42,7 +42,7 @@ contract MaticStake is Script {
     TestToken maticToken = TestToken(vm.parseJsonAddress(json, ".root.tokens.MaticToken"));
     console.log("Sender account has a balance of : ", maticToken.balanceOf(validatorAccount));
 
-    maticToken.approve(address(stakeManager), 10**20);
+    maticToken.approve(address(stakeManager), 10**24);
     console.log('sent approve tx, staking now...');
     
     console.log("Validator set size : ", stakeManager.currentValidatorSetSize());
