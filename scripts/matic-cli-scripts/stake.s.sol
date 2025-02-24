@@ -19,17 +19,12 @@ contract MaticStake is Script {
     vm.startBroadcast(deployerPrivateKey);
     
     stake(validatorAccount, pubkey, stakeAmount, heimdallFee);
-    // topUpForFee();
 
     vm.stopBroadcast();
   }
 
   function stake(address _validatorAccount, bytes memory _pubkey, uint256 _stakeAmount, uint256 _heimdallFee) public {
     
-    // address validatorAccount = vm.envAddress("VALIDATOR");
-    // bytes memory pubkey = vm.envBytes("VALIDATOR_PUB_KEY");
-    // uint256 stakeAmount = vm.envUint("STAKE_AMOUNT");
-    // uint256 heimdallFee = vm.envUint("HEIMDALL_FEE");
     address validatorAccount = _validatorAccount;
     bytes memory pubkey = _pubkey;
     uint256 stakeAmount = _stakeAmount;
@@ -54,22 +49,4 @@ contract MaticStake is Script {
 
   }
 
-  function topUpForFee() public {
-    address stakeFor = vm.envAddress("VALIDATOR_1");
-    uint256 amount = 10**20;
-
-    StakeManager stakeManager = StakeManager(vm.parseJsonAddress(json, ".stakeManager"));
-    TestToken rootToken = TestToken(vm.parseJsonAddress(json, ".maticToken"));
-    rootToken.approve(vm.parseJsonAddress(json, ".stakeManagerProxy"), amount);
-
-    console.log("Approved!, staking now...");
-
-    uint256 validatorId = stakeManager.signerToValidator(stakeFor);
-    console.log("Validator ID : ",validatorId);
-    stakeManager.topUpForFee(stakeFor, amount);
-
-    console.log("Success!");
-
-
-  }
 }

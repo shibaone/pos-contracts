@@ -100,9 +100,6 @@ contract ChildContractDeploymentScript is Script {
     string memory tempJson = 'tempJson';
     string memory outChild = vm.serializeString(childJson, "tokens", outChildToken);
     
-    // string memory fJson = vm.serializeString(tempJson, "", json);
-    // json = vm.serializeString(json, "child", outChild);
-    // fJson = vm.serializeString(tempJson, "child", outChild);
     vm.serializeJson(tempJson, json);
     string memory fJson = vm.serializeString(tempJson, "child", outChild);
     vm.writeJson(fJson, path);
