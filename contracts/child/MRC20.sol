@@ -13,12 +13,18 @@ contract MRC20 is BaseERC20 {
     uint256 public currentSupply = 0;
     uint8 private constant DECIMALS = 18;
     bool isInitialized;
+    uint256 locked = 0;
+
+    modifier nonReentrant() {
+        require(locked == 0, "reentrancy");
+        locked = 1;
+        _;
+        locked = 0;
+    }
 
     constructor() public {}
 
     function initialize(address _childChain, address _token) public {
-        // Todo: once BorValidator(@0x1000) contract added uncomment me
-        // require(msg.sender == address(0x1000));
         require(!isInitialized, "The contract is already initialized");
         isInitialized = true;
         token = _token;
@@ -38,12 +44,11 @@ contract MRC20 is BaseERC20 {
 
         // input balance
         uint256 input1 = balanceOf(user);
+        currentSupply = currentSupply.add(amount);
 
         // transfer amount to user
-        address payable _user = address(uint160(user));
-        _user.transfer(amount);
-
-        currentSupply = currentSupply.add(amount);
+        // not reenterant since this method is only called by commitState on StateReceiver which is onlySystem
+        _nativeTransfer(user, amount);
 
         // deposit events
         emit Deposit(token, user, amount, input1, balanceOf(user));
@@ -56,10 +61,7 @@ contract MRC20 is BaseERC20 {
 
         currentSupply = currentSupply.sub(amount);
         // check for amount
-        require(
-            amount > 0 && msg.value == amount,
-            "Insufficient amount"
-        );
+        require(amount > 0 && msg.value == amount, "Insufficient amount");
 
         // withdraw event
         emit Withdraw(token, user, amount, input, balanceOf(user));
@@ -77,8 +79,8 @@ contract MRC20 is BaseERC20 {
         return DECIMALS;
     }
 
-    function totalSupply() public view returns (uint256) {
-        return 250000000 * 10**uint256(DECIMALS);
+    function totalSupply() public pure returns (uint256) {
+        return 250000000 * 10 ** uint256(DECIMALS);
     }
 
     function balanceOf(address account) public view returns (uint256) {
@@ -97,14 +99,36 @@ contract MRC20 is BaseERC20 {
     }
 
     /**
-   * @dev _transfer is invoked by _transferFrom method that is inherited from BaseERC20.
-   * This enables us to transfer MaticEth between users while keeping the interface same as that of an ERC20 Token.
-   */
-    function _transfer(address sender, address recipient, uint256 amount)
-        internal
-    {
+     * @dev _transfer is invoked by _transferFrom method that is inherited from BaseERC20.
+     * This enables us to transfer Bone between users while keeping the interface same as that of an ERC20 Token.
+     */
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal {
         require(recipient != address(this), "can't send to MRC20");
-        address(uint160(recipient)).transfer(amount);
+        _nativeTransfer(recipient, amount);
         emit Transfer(sender, recipient, amount);
+    }
+
+    // @notice method to transfer native asset to receiver (nonReentrant)
+    // @dev 5000 gas is forwarded in the call to receiver
+    // @dev msg.value checks (if req), emitting logs are handled seperately
+    // @param receiver address to transfer native token to
+    // @param amount amount of native token to transfer
+    function _nativeTransfer(
+        address receiver,
+        uint256 amount
+    ) internal nonReentrant {
+        uint256 txGasLimit = 5000;
+        (bool success, bytes memory ret) = receiver.call.value(amount).gas(
+            txGasLimit
+        )("");
+        if (!success) {
+            assembly {
+                revert(add(ret, 0x20), mload(ret)) // bubble up revert
+            }
+        }
     }
 }
