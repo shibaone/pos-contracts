@@ -48,11 +48,11 @@ contract SyncChildStateToRootScript is Script {
     StateSender stateSenderContract = StateSender(vm.parseJsonAddress(json, '.root.StateSender'));
     stateSenderContract.register(vm.parseJsonAddress(json, '.root.DepositManagerProxy'), vm.parseJsonAddress(json, '.child.ChildChain'));
 
-    address currentChildChain = registry.childChain();
-    address currentStateSender = registry.stateSender();
+    DepositManager depositManager = DepositManager(payable(vm.parseJsonAddress(json, '.root.DepositManagerProxy')));
+    address currentChildChain = depositManager.childChain();
+    address currentStateSender = depositManager.stateSender();
     (address newChildChain, address newStateSender) = registry.getChildChainAndStateSender();
     if (currentChildChain != newChildChain || currentStateSender != newStateSender) {
-      DepositManager depositManager = DepositManager(payable(vm.parseJsonAddress(json, '.root.DepositManagerProxy')));
       depositManager.updateChildChainAndStateSender();
     }
 
