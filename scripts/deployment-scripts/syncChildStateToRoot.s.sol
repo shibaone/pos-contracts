@@ -13,7 +13,7 @@ import {DepositManager} from "../helpers/interfaces/DepositManager.generated.sol
 contract SyncChildStateToRootScript is Script {
   function run() public {
 
-    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY"); 
+    uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
 
     vm.startBroadcast(deployerPrivateKey);
     string memory path = "contractAddresses.json";
@@ -44,15 +44,18 @@ contract SyncChildStateToRootScript is Script {
 
     bytes memory childChainData = abi.encodeWithSelector(bytes4(keccak256("updateContractMap(bytes32,address)")), keccak256(abi.encodePacked("childChain")), vm.parseJsonAddress(json, '.child.ChildChain'));
     governance.update(registryAddress, childChainData);
-    
-    
-    
+
     StateSender stateSenderContract = StateSender(vm.parseJsonAddress(json, '.root.StateSender'));
     stateSenderContract.register(vm.parseJsonAddress(json, '.root.DepositManagerProxy'), vm.parseJsonAddress(json, '.child.ChildChain'));
+
     DepositManager depositManager = DepositManager(payable(vm.parseJsonAddress(json, '.root.DepositManagerProxy')));
-    depositManager.updateChildChainAndStateSender();
+    address currentChildChain = depositManager.childChain();
+    address currentStateSender = depositManager.stateSender();
+    (address newChildChain, address newStateSender) = registry.getChildChainAndStateSender();
+    if (currentChildChain != newChildChain || currentStateSender != newStateSender) {
+      depositManager.updateChildChainAndStateSender();
+    }
 
     vm.stopBroadcast();
-    
   }
 }
