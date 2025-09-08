@@ -71,11 +71,11 @@ contract MRC20 is BaseERC20NoSig {
     }
 
     function name() public pure returns (string memory) {
-        return "Polygon Ecosystem Token";
+        return "Bone Token";
     }
 
     function symbol() public pure returns (string memory) {
-        return "POL";
+        return "BONE";
     }
 
     function decimals() public pure returns (uint8) {
@@ -83,7 +83,7 @@ contract MRC20 is BaseERC20NoSig {
     }
 
     function totalSupply() public pure returns (uint256) {
-        return 10000000000 * 10**uint256(DECIMALS);
+        return 250000000 * 10**uint256(DECIMALS);
     }
 
     function balanceOf(address account) public view returns (uint256) {

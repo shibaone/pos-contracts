@@ -11,11 +11,28 @@ import {Math} from "openzeppelin-solidity/contracts/math/Math.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {EventsHub} from "../EventsHub.sol";
 import {ValidatorShare} from "../validatorShare/ValidatorShare.sol";
+import {IValidatorRegistry} from "../IValidatorRegistry.sol";
 
 contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManagerStorageExtension {
     using SafeMath for uint256;
 
     constructor() public GovernanceLockable(address(0x0)) {}
+
+    IValidatorRegistry public validatorRegistry;
+
+     function updateValidatorRegistry(address _newContract) public onlyOwner {
+        require(_newContract != address(0), "address cannot be zero");
+        validatorRegistry = IValidatorRegistry(_newContract);
+    }
+
+    function checkValidatorWhitelisting(address validator) public view returns(bool){
+        if(validatorRegistry.validatorWhitelistingEnable()){
+            return validatorRegistry.validators(validator);
+        }
+        else {
+            return true;
+        }
+    }
 
     function startAuction(
         uint256 validatorId,

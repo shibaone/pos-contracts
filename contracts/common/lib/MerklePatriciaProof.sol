@@ -1,9 +1,3 @@
-/*
- * @title MerklePatriciaVerifier
- * @author Sam Mayo (sammayo888@gmail.com)
- *
- * @dev Library for verifing merkle patricia proofs.
- */
 pragma solidity ^0.5.2;
 
 import {RLPReader} from "./RLPReader.sol";
