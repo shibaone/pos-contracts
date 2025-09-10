@@ -10,7 +10,10 @@ forge compile --skip test script
 
 mkdir -p scripts/helpers/interfaces
 
-find out -type f -print0 | while read -d $'\0' file
+# Only process artifact JSON files and skip build-info
+find out \
+  -path "out/build-info" -prune -o \
+  -type f -name "*.json" -print0 | while read -d $'\0' file
 do
   echo $file
   create_interface 

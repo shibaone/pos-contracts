@@ -29,6 +29,7 @@ import {StakeManager} from "../helpers/interfaces/StakeManager.generated.sol";
 import {StakeManagerProxy} from "../helpers/interfaces/StakeManagerProxy.generated.sol";
 import {StakeManagerExtension} from "../helpers/interfaces/StakeManagerExtension.generated.sol";
 import {SlashingManager} from "../helpers/interfaces/SlashingManager.generated.sol";
+import {ValidatorRegistry} from "../helpers/interfaces/ValidatorRegistry.generated.sol";
 import {MaticWETH} from "../helpers/interfaces/MaticWETH.generated.sol";
 import {ERC20Predicate} from "../helpers/interfaces/ERC20Predicate.generated.sol";
 import {ERC721Predicate} from "../helpers/interfaces/ERC721Predicate.generated.sol";
@@ -63,6 +64,7 @@ contract DeploymentScript is Script {
     StakeManagerProxy stakeManagerProxy;
     StakeManagerExtension auctionImpl;
     SlashingManager slashingManager;
+    ValidatorRegistry validatorRegistry;
     MaticWETH maticWETH;
     ERC20Predicate erc20Predicate;
     ERC721Predicate erc721Predicate;
@@ -217,6 +219,14 @@ contract DeploymentScript is Script {
         );
 
         vm.serializeAddress(rootJson, "SlashingManager", address(slashingManager));
+
+        // ValidatorRegistry deployment:
+        validatorRegistry = ValidatorRegistry(payable(deployCode("out/ValidatorRegistry.sol/ValidatorRegistry.json")));
+        vm.serializeAddress(rootJson, "ValidatorRegistry", address(validatorRegistry));
+
+        // Set ValidatorRegistry in StakeManagerExtension:
+        auctionImpl.updateValidatorRegistry(address(validatorRegistry));
+        console.log("ValidatorRegistry set in StakeManagerExtension: ", address(validatorRegistry));
 
         // Flag.
         stakingNFT.transferOwnership(address(stakeManagerProxy));
