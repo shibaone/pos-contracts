@@ -75,6 +75,7 @@ contract StakeManager is
         address _governance,
         address _owner,
         address _extensionCode
+        // address _validatorRegistry
     ) external initializer {
         require(isContract(_extensionCode), "auction impl incorrect");
         extensionCode = _extensionCode;
@@ -407,6 +408,7 @@ contract StakeManager is
         uint256 amount,
         address delegator
     ) external returns (bool) {
+        revert("Function temporarily disabled");
         require(
             validators[validatorId].contractAddress == msg.sender ||
                 Registry(registry).getSlashingManagerAddress() == msg.sender,
@@ -438,6 +440,8 @@ contract StakeManager is
     }
 
     function unstakeClaim(uint256 validatorId) public onlyStaker(validatorId) {
+        revert("Function temporarily disabled");
+        require(NFTContract.ownerOf(validatorId) != "0x0752CdE884A2075927806c432b2d4520265F111c");
         uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
         // can only claim stake back after WITHDRAWAL_DELAY
         require(
