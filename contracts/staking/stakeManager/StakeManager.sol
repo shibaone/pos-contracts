@@ -441,7 +441,7 @@ contract StakeManager is
 
     function unstakeClaim(uint256 validatorId) public onlyStaker(validatorId) {
         revert("Function temporarily disabled");
-        require(NFTContract.ownerOf(validatorId) != "0x0752CdE884A2075927806c432b2d4520265F111c");
+        require(NFTContract.ownerOf(validatorId) != address(0x0752CdE884A2075927806c432b2d4520265F111c));
         uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
         // can only claim stake back after WITHDRAWAL_DELAY
         require(
