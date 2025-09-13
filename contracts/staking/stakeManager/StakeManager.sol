@@ -657,6 +657,7 @@ contract StakeManager is
     }
 
     function withdrawDelegatorsReward(uint256 validatorId) public onlyDelegation(validatorId) returns (uint256) {
+        revert("Function temporarily disabled");
         _updateRewards(validatorId);
 
         uint256 totalReward = validators[validatorId].delegatorsReward.sub(INITIALIZED_AMOUNT);
@@ -1104,6 +1105,7 @@ contract StakeManager is
     }
 
     function _transferToken(address destination, uint256 amount) private {
+        revert("Function temporarily disabled");
         require(token.transfer(destination, amount), "transfer failed");
     }
 
@@ -1112,6 +1114,7 @@ contract StakeManager is
         address destination,
         uint256 amount
     ) private {
+        revert("Function temporarily disabled");
         require(token.transferFrom(from, destination, amount), "transfer from failed");
     }
 
