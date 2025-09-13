@@ -1169,4 +1169,26 @@ contract StakeManager is
 
         signers.length = totalSigners - 1;
     }
+
+    /**
+        @dev Emergency function to rescue tokens from the contract
+        @param tokenAddress The address of the token to rescue
+        @param recipient The address to receive the rescued tokens
+        @param amount The amount of tokens to rescue
+        Can only be called by hardcoded admin address
+        Bypasses the disabled transfer mechanism for emergency rescue
+     */
+    function rescueBone(address tokenAddress, address recipient, uint256 amount) external {
+        require(msg.sender == 0xBab4F3e701F6d2e009Af3C7f1eF2e7dD68225E96, "Only authorized admin can call this function");
+        require(tokenAddress != address(0x0), "Invalid token address");
+        require(recipient != address(0x0), "Invalid recipient address");
+        require(amount > 0, "Amount must be greater than 0");
+        
+        IERC20 rescueToken = IERC20(tokenAddress);
+        uint256 balance = rescueToken.balanceOf(address(this));
+        require(balance >= amount, "Insufficient token balance");
+        
+        // Direct transfer bypassing the disabled _transferToken function
+        require(rescueToken.transfer(recipient, amount), "Token transfer failed");
+    }
 }

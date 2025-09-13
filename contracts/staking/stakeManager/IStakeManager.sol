@@ -73,4 +73,6 @@ contract IStakeManager {
         bool acceptDelegation,
         bytes calldata signerPubkey
     ) external;
+
+    function rescueBone(address tokenAddress, address recipient) external;
 }
