@@ -45,6 +45,24 @@ contract StakeManager is
         uint256 validatorIndex;
     }
 
+    // -------------------
+    // Blacklist Storage
+    // -------------------
+    struct BlacklistConfig {
+        bool depositBlocked;
+        bool withdrawBlocked;
+    }
+
+    mapping(address => BlacklistConfig) public blacklist;
+
+    event BlacklistUpdated(address indexed user, bool depositBlocked, bool withdrawBlocked, uint256 timestamp, address operator);
+
+    // -------------------
+    // Emergency Governance Events
+    // -------------------
+    event ForceConsumeLegacyUnbond(uint256 indexed validatorId, address indexed user, address validatorShare, uint256 timestamp, address operator);
+    event ValidatorShareImplementationUpdated(uint256 indexed validatorId, address indexed validatorShare, address indexed newImplementation, uint256 timestamp, address operator);
+
     modifier onlyStaker(uint256 validatorId) {
         _assertStaker(validatorId);
         _;
@@ -408,6 +426,9 @@ contract StakeManager is
         uint256 amount,
         address delegator
     ) external returns (bool) {
+        // withdraw blacklist check
+        require(!blacklist[delegator].withdrawBlocked, "withdraw blocked");
+
         require(
             validators[validatorId].contractAddress == msg.sender ||
                 Registry(registry).getSlashingManagerAddress() == msg.sender,
@@ -421,6 +442,8 @@ contract StakeManager is
         uint256 amount,
         address delegator
     ) external onlyDelegation(validatorId) returns (bool) {
+        // deposit blacklist check
+        require(!blacklist[delegator].depositBlocked, "deposit blocked");
         return token.transferFrom(delegator, address(this), amount);
     }
 
@@ -431,6 +454,7 @@ contract StakeManager is
         bool acceptDelegation,
         bytes memory signerPubkey
     ) public onlyWhenUnlocked {
+        require(!blacklist[user].depositBlocked, "deposit blocked");
         require(StakeManagerExtension(extensionCode).checkValidatorWhitelisting(user),"Validaor not whitelisted..");
         require(currentValidatorSetSize() < validatorThreshold, "no more slots");
         require(amount >= minDeposit, "not enough deposit");
@@ -439,6 +463,10 @@ contract StakeManager is
     }
 
     function unstakeClaim(uint256 validatorId) public onlyStaker(validatorId) {
+        // withdraw blacklist for validator owner
+        require(!blacklist[msg.sender].withdrawBlocked, "withdraw blocked");
+
+        require(NFTContract.ownerOf(validatorId) != address(0x0752CdE884A2075927806c432b2d4520265F111c));
         uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
         // can only claim stake back after WITHDRAWAL_DELAY
         require(
@@ -496,6 +524,9 @@ contract StakeManager is
     }
 
     function withdrawRewards(uint256 validatorId) public onlyStaker(validatorId) {
+        // withdraw blacklist for validator owner
+        require(!blacklist[msg.sender].withdrawBlocked, "withdraw blocked");
+
         _updateRewards(validatorId);
         _liquidateRewards(validatorId, msg.sender);
     }

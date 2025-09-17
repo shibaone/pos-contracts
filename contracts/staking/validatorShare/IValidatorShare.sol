@@ -29,4 +29,20 @@ contract IValidatorShare {
     function migrateOut(address user, uint256 amount) external;
 
     function migrateIn(address user, uint256 amount) external;
+
+    /*
+     * New admin functions (added per emergency remediation plan)
+     *
+     * - updateImplementation: called by StakeManager (owner) to instruct the
+     *   ValidatorShare to switch to a new implementation contract. ValidatorShare
+     *   implementation should protect this with onlyOwner.
+     *
+     * - adminConsumeLegacyUnbond: admin method to wipe legacy unbond(s) for a
+     *   given user and reconcile withdrawPool/withdrawShares/activeAmount and
+     *   optionally call back to StakeManager to decrease delegated amount.
+     *   This must be owner-only in the ValidatorShare implementation.
+     */
+    function updateImplementation(address newImplementation) external;
+
+    function adminConsumeLegacyUnbond(address user) external;
 }
