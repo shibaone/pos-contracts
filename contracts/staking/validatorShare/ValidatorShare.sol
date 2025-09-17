@@ -18,9 +18,9 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
     uint256 constant EXCHANGE_RATE_PRECISION = 100;
     // maximum matic possible, even if rate will be 1 and all matic will be staken in one go, it will result in 10 ^ 58 shares
-    uint256 constant EXCHANGE_RATE_HIGH_PRECISION = 10**29;
+    uint256 constant EXCHANGE_RATE_HIGH_PRECISION = 10 ** 29;
     uint256 constant MAX_COMMISION_RATE = 100;
-    uint256 constant REWARD_PRECISION = 10**25;
+    uint256 constant REWARD_PRECISION = 10 ** 25;
 
     StakingInfo public stakingLogger;
     IStakeManager public stakeManager;
@@ -49,36 +49,24 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     EventsHub public eventsHub;
 
     // Admin event for consumed unbond records (legacy)
-    event AdminConsumedUnbond(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 unbondNonce, // 0 for legacy
-        uint256 amount,
-        uint256 shares,
-        uint256 timestamp,
-        address operator
-    );
+    event AdminConsumedUnbond( // 0 for legacy
+    uint256 indexed validatorId, address indexed user, uint256 unbondNonce, uint256 amount, uint256 shares, uint256 timestamp, address operator);
 
     // onlyOwner will prevent this contract from initializing, since it's owner is going to be 0x0 address
-    function initialize(
-        uint256 _validatorId,
-        address _stakingLogger,
-        address _stakeManager
-    ) external initializer {
+    function initialize(uint256 _validatorId, address _stakingLogger, address _stakeManager) external initializer {
         validatorId = _validatorId;
         stakingLogger = StakingInfo(_stakingLogger);
         stakeManager = IStakeManager(_stakeManager);
         _transferOwnership(_stakeManager);
         _getOrCacheEventsHub();
 
-        minAmount = 10**18;
+        minAmount = 10 ** 18;
         delegation = true;
     }
 
     /**
-        Public View Methods
-    */
-
+     * Public View Methods
+     */
     function exchangeRate() public view returns (uint256) {
         uint256 totalShares = totalSupply();
         uint256 precision = _getRatePrecision();
@@ -117,19 +105,18 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     /**
-        Public Methods
+     * Public Methods
      */
-
-    function buyVoucher(uint256 _amount, uint256 _minSharesToMint) public returns(uint256 amountToDeposit) {
+    function buyVoucher(uint256 _amount, uint256 _minSharesToMint) public returns (uint256 amountToDeposit) {
         _withdrawAndTransferReward(msg.sender);
-        
+
         amountToDeposit = _buyShares(_amount, _minSharesToMint, msg.sender);
         require(stakeManager.delegationDeposit(validatorId, amountToDeposit, msg.sender), "deposit failed");
-        
+
         return amountToDeposit;
     }
 
-    function restake() public returns(uint256, uint256) {
+    function restake() public returns (uint256, uint256) {
         address user = msg.sender;
         uint256 liquidReward = _withdrawReward(user);
         uint256 amountRestaked;
@@ -141,17 +128,14 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
             if (liquidReward > amountRestaked) {
                 // return change to the user
-                require(
-                    stakeManager.transferFunds(validatorId, liquidReward - amountRestaked, user),
-                    "Insufficent rewards"
-                );
+                require(stakeManager.transferFunds(validatorId, liquidReward - amountRestaked, user), "Insufficent rewards");
                 stakingLogger.logDelegatorClaimRewards(validatorId, user, liquidReward - amountRestaked);
             }
 
-            (uint256 totalStaked, ) = getTotalStake(user);
+            (uint256 totalStaked,) = getTotalStake(user);
             stakingLogger.logDelegatorRestaked(validatorId, user, totalStaked);
         }
-        
+
         return (amountRestaked, liquidReward);
     }
 
@@ -203,11 +187,7 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         stakingLogger.logDelegatorUnstaked(validatorId, msg.sender, amount);
     }
 
-    function slash(
-        uint256 validatorStake,
-        uint256 delegatedAmount,
-        uint256 totalAmountToSlash
-    ) external onlyOwner returns (uint256) {
+    function slash(uint256 validatorStake, uint256 delegatedAmount, uint256 totalAmountToSlash) external onlyOwner returns (uint256) {
         revert("Slashing disabled");
     }
 
@@ -215,27 +195,19 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         delegation = _delegation;
     }
 
-    function drain(
-        address token,
-        address payable destination,
-        uint256 amount
-    ) external onlyOwner {
+    function drain(address token, address payable destination, uint256 amount) external onlyOwner {
         revert("No draining.");
     }
 
     /**
-        New shares exit API
+     * New shares exit API
      */
-
     function sellVoucher_new(uint256 claimAmount, uint256 maximumSharesToBurn) public {
         (uint256 shares, uint256 _withdrawPoolShare) = _sellVoucher(claimAmount, maximumSharesToBurn);
 
         uint256 unbondNonce = unbondNonces[msg.sender].add(1);
 
-        DelegatorUnbond memory unbond = DelegatorUnbond({
-            shares: _withdrawPoolShare,
-            withdrawEpoch: stakeManager.epoch()
-        });
+        DelegatorUnbond memory unbond = DelegatorUnbond({shares: _withdrawPoolShare, withdrawEpoch: stakeManager.epoch()});
         unbonds_new[msg.sender][unbondNonce] = unbond;
         unbondNonces[msg.sender] = unbondNonce;
 
@@ -251,11 +223,11 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     /**
-        Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
-        Only callable by owner (StakeManager). This consumes the stored legacy unbond entry,
-        subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
-        computed amount. This function DOES NOT transfer tokens.
-    */
+     * Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
+     *     Only callable by owner (StakeManager). This consumes the stored legacy unbond entry,
+     *     subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
+     *     computed amount. This function DOES NOT transfer tokens.
+     */
     function adminConsumeLegacyUnbond(address user) external onlyOwner returns (uint256) {
         DelegatorUnbond memory unbond = unbonds[user];
         uint256 shares = unbond.shares;
@@ -276,10 +248,9 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     /**
-        Private Methods
+     * Private Methods
      */
-
-    function _getOrCacheEventsHub() private returns(EventsHub) {
+    function _getOrCacheEventsHub() private returns (EventsHub) {
         EventsHub _eventsHub = eventsHub;
         if (_eventsHub == EventsHub(0x0)) {
             _eventsHub = EventsHub(Registry(stakeManager.getRegistry()).contractMap(keccak256("eventsHub")));
@@ -288,7 +259,7 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         return _eventsHub;
     }
 
-    function _sellVoucher(uint256 claimAmount, uint256 maximumSharesToBurn) private returns(uint256, uint256) {
+    function _sellVoucher(uint256 claimAmount, uint256 maximumSharesToBurn) private returns (uint256, uint256) {
         // first get how much staked in total and compare to target unstake amount
         (uint256 totalStaked, uint256 rate) = getTotalStake(msg.sender);
         require(totalStaked != 0 && totalStaked >= claimAmount, "Too much requested");
@@ -311,12 +282,9 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         return (shares, _withdrawPoolShare);
     }
 
-    function _unstakeClaimTokens(DelegatorUnbond memory unbond) private returns(uint256) {
+    function _unstakeClaimTokens(DelegatorUnbond memory unbond) private returns (uint256) {
         uint256 shares = unbond.shares;
-        require(
-            unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch() && shares > 0,
-            "Incomplete withdrawal period"
-        );
+        require(unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch() && shares > 0, "Incomplete withdrawal period");
 
         uint256 _amount = withdrawExchangeRate().mul(shares).div(_getRatePrecision());
         withdrawShares = withdrawShares.sub(shares);
@@ -340,7 +308,7 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         uint256 _rewardPerShare = rewardPerShare;
         if (accumulatedReward != 0) {
             uint256 totalShares = totalSupply();
-            
+
             if (totalShares != 0) {
                 _rewardPerShare = _rewardPerShare.add(accumulatedReward.mul(REWARD_PRECISION).div(totalShares));
             }
@@ -365,11 +333,9 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     function _withdrawReward(address user) private returns (uint256) {
-        uint256 _rewardPerShare = _calculateRewardPerShareWithRewards(
-            stakeManager.withdrawDelegatorsReward(validatorId)
-        );
+        uint256 _rewardPerShare = _calculateRewardPerShareWithRewards(stakeManager.withdrawDelegatorsReward(validatorId));
         uint256 liquidRewards = _calculateReward(user, _rewardPerShare);
-        
+
         rewardPerShare = _rewardPerShare;
         initalRewardPerShare[user] = _rewardPerShare;
         return liquidRewards;
@@ -384,11 +350,7 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         return liquidRewards;
     }
 
-    function _buyShares(
-        uint256 _amount,
-        uint256 _minSharesToMint,
-        address user
-    ) private onlyWhenUnlocked returns (uint256) {
+    function _buyShares(uint256 _amount, uint256 _minSharesToMint, address user) private onlyWhenUnlocked returns (uint256) {
         require(delegation, "Delegation is disabled");
 
         uint256 rate = exchangeRate();
@@ -412,12 +374,8 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         return _amount;
     }
 
-    function _transfer(
-        address from,
-        address to,
-        uint256 value
-    ) internal {
-        // get rewards for recipient 
+    function _transfer(address from, address to, uint256 value) internal {
+        // get rewards for recipient
         _withdrawAndTransferReward(to);
         // convert rewards to shares
         _withdrawAndTransferReward(from);
