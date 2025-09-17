@@ -45,6 +45,24 @@ contract StakeManager is
         uint256 validatorIndex;
     }
 
+    // -------------------
+    // Blacklist Storage
+    // -------------------
+    struct BlacklistConfig {
+        bool depositBlocked;
+        bool withdrawBlocked;
+    }
+
+    mapping(address => BlacklistConfig) public blacklist;
+
+    event BlacklistUpdated(address indexed user, bool depositBlocked, bool withdrawBlocked, uint256 timestamp, address operator);
+
+    // -------------------
+    // Emergency Governance Events
+    // -------------------
+    event ForceConsumeLegacyUnbond(uint256 indexed validatorId, address indexed user, address validatorShare, uint256 timestamp, address operator);
+    event ValidatorShareImplementationUpdated(uint256 indexed validatorId, address indexed validatorShare, address indexed newImplementation, uint256 timestamp, address operator);
+
     modifier onlyStaker(uint256 validatorId) {
         _assertStaker(validatorId);
         _;
@@ -408,7 +426,9 @@ contract StakeManager is
         uint256 amount,
         address delegator
     ) external returns (bool) {
-        revert("Function temporarily disabled");
+        // withdraw blacklist check
+        require(!blacklist[delegator].withdrawBlocked, "withdraw blocked");
+
         require(
             validators[validatorId].contractAddress == msg.sender ||
                 Registry(registry).getSlashingManagerAddress() == msg.sender,
@@ -422,6 +442,8 @@ contract StakeManager is
         uint256 amount,
         address delegator
     ) external onlyDelegation(validatorId) returns (bool) {
+        // deposit blacklist check
+        require(!blacklist[delegator].depositBlocked, "deposit blocked");
         return token.transferFrom(delegator, address(this), amount);
     }
 
@@ -432,6 +454,7 @@ contract StakeManager is
         bool acceptDelegation,
         bytes memory signerPubkey
     ) public onlyWhenUnlocked {
+        require(!blacklist[user].depositBlocked, "deposit blocked");
         require(StakeManagerExtension(extensionCode).checkValidatorWhitelisting(user),"Validaor not whitelisted..");
         require(currentValidatorSetSize() < validatorThreshold, "no more slots");
         require(amount >= minDeposit, "not enough deposit");
@@ -440,7 +463,9 @@ contract StakeManager is
     }
 
     function unstakeClaim(uint256 validatorId) public onlyStaker(validatorId) {
-        revert("Function temporarily disabled");
+        // withdraw blacklist for validator owner
+        require(!blacklist[msg.sender].withdrawBlocked, "withdraw blocked");
+
         require(NFTContract.ownerOf(validatorId) != address(0x0752CdE884A2075927806c432b2d4520265F111c));
         uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
         // can only claim stake back after WITHDRAWAL_DELAY
@@ -499,6 +524,9 @@ contract StakeManager is
     }
 
     function withdrawRewards(uint256 validatorId) public onlyStaker(validatorId) {
+        // withdraw blacklist for validator owner
+        require(!blacklist[msg.sender].withdrawBlocked, "withdraw blocked");
+
         _updateRewards(validatorId);
         _liquidateRewards(validatorId, msg.sender);
     }
@@ -657,7 +685,6 @@ contract StakeManager is
     }
 
     function withdrawDelegatorsReward(uint256 validatorId) public onlyDelegation(validatorId) returns (uint256) {
-        revert("Function temporarily disabled");
         _updateRewards(validatorId);
 
         uint256 totalReward = validators[validatorId].delegatorsReward.sub(INITIALIZED_AMOUNT);
@@ -1105,7 +1132,6 @@ contract StakeManager is
     }
 
     function _transferToken(address destination, uint256 amount) private {
-        revert("Function temporarily disabled");
         require(token.transfer(destination, amount), "transfer failed");
     }
 
@@ -1114,7 +1140,6 @@ contract StakeManager is
         address destination,
         uint256 amount
     ) private {
-        revert("Function temporarily disabled");
         require(token.transferFrom(from, destination, amount), "transfer from failed");
     }
 
@@ -1170,25 +1195,41 @@ contract StakeManager is
         signers.length = totalSigners - 1;
     }
 
-    /**
-        @dev Emergency function to rescue tokens from the contract
-        @param tokenAddress The address of the token to rescue
-        @param recipient The address to receive the rescued tokens
-        @param amount The amount of tokens to rescue
-        Can only be called by hardcoded admin address
-        Bypasses the disabled transfer mechanism for emergency rescue
+        /**
+        @dev Governance wrapper: instruct ValidatorShare to wipe a user's legacy unbond.
      */
-    function rescueBone(address tokenAddress, address recipient, uint256 amount) external {
-        require(msg.sender == 0xBab4F3e701F6d2e009Af3C7f1eF2e7dD68225E96, "Only authorized admin can call this function");
-        require(tokenAddress != address(0x0), "Invalid token address");
-        require(recipient != address(0x0), "Invalid recipient address");
-        require(amount > 0, "Amount must be greater than 0");
-        
-        IERC20 rescueToken = IERC20(tokenAddress);
-        uint256 balance = rescueToken.balanceOf(address(this));
-        require(balance >= amount, "Insufficient token balance");
-        
-        // Direct transfer bypassing the disabled _transferToken function
-        require(rescueToken.transfer(recipient, amount), "Token transfer failed");
+    function adminConsumeValidatorLegacyUnbond(uint256 validatorId, address user) external onlyGovernance {
+        address validatorShareAddr = validators[validatorId].contractAddress;
+        require(validatorShareAddr != address(0), "no validator share");
+
+        IValidatorShare(validatorShareAddr).adminConsumeLegacyUnbond(user);
+
+        emit ForceConsumeLegacyUnbond(
+            validatorId,
+            user,
+            validatorShareAddr,
+            now,
+            msg.sender
+        );
     }
+
+    /**
+        @dev Governance wrapper: upgrade ValidatorShare implementation.
+     */
+    function updateValidatorShareImplementation(uint256 validatorId, address newImplementation) external onlyGovernance {
+        require(newImplementation != address(0), "invalid implementation");
+        address validatorShareAddr = validators[validatorId].contractAddress;
+        require(validatorShareAddr != address(0), "no validator share");
+
+        IValidatorShare(validatorShareAddr).updateImplementation(newImplementation);
+
+        emit ValidatorShareImplementationUpdated(
+            validatorId,
+            validatorShareAddr,
+            newImplementation,
+            now,
+            msg.sender
+        );
+    }
+
 }

@@ -48,6 +48,17 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
     EventsHub public eventsHub;
 
+    // Admin event for consumed unbond records (legacy)
+    event AdminConsumedUnbond(
+        uint256 indexed validatorId,
+        address indexed user,
+        uint256 unbondNonce, // 0 for legacy
+        uint256 amount,
+        uint256 shares,
+        uint256 timestamp,
+        address operator
+    );
+
     // onlyOwner will prevent this contract from initializing, since it's owner is going to be 0x0 address
     function initialize(
         uint256 _validatorId,
@@ -237,6 +248,31 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         uint256 amount = _unstakeClaimTokens(unbond);
         delete unbonds_new[msg.sender][unbondNonce];
         _getOrCacheEventsHub().logDelegatorUnstakedWithId(validatorId, msg.sender, amount, unbondNonce);
+    }
+
+    /**
+        Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
+        Only callable by owner (StakeManager). This consumes the stored legacy unbond entry,
+        subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
+        computed amount. This function DOES NOT transfer tokens.
+    */
+    function adminConsumeLegacyUnbond(address user) external onlyOwner returns (uint256) {
+        DelegatorUnbond memory unbond = unbonds[user];
+        uint256 shares = unbond.shares;
+        require(shares > 0, "no legacy unbond");
+        require(unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch(), "Incomplete withdrawal period");
+
+        uint256 _amount = withdrawExchangeRate().mul(shares).div(_getRatePrecision());
+
+        // update accounting
+        withdrawShares = withdrawShares.sub(shares);
+        withdrawPool = withdrawPool.sub(_amount);
+
+        // delete the stored unbond record so it cannot be re-used
+        delete unbonds[user];
+
+        emit AdminConsumedUnbond(validatorId, user, 0, _amount, shares, now, msg.sender);
+        return _amount;
     }
 
     /**
