@@ -8,6 +8,17 @@ module.exports = {
       gas: "auto",
       gasPrice: "auto",
       allowUnlimitedContractSize: true,
+      forking: {
+        url: "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7",
+        blockNumber: 23388954
+      },
+      chainId: 1
+    },
+    mychain: {
+      url: 'http://127.0.0.1:8545/',
+      accounts: [process.env.PRIVATE_KEY],
+      gas: "auto",
+      gasPrice: "auto",
     },
     sepolia: {
       url: 'https://ethereum-sepolia-rpc.publicnode.com',

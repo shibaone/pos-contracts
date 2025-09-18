@@ -199,6 +199,10 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         revert("No draining.");
     }
 
+    function updateImplementation(address newImplementation) external onlyOwner {
+        revert("Implementation updates not supported");
+    }
+
     /**
      * New shares exit API
      */

@@ -1,0 +1,21 @@
+{
+  "blockNumber": 23388954,
+  "validatorId": 1,
+  "validatorShareAddr": "0xB817B7C987bE0a0Bc85c807Eb8Dc7848270Cc523",
+  "stakeManagerAddr": "0x65218A41Fb92637254B4f8c97448d3dF343A3064",
+  "user": "0xe9B854365FF0F4Ce7a155f177f528cb37A737Ab7",
+  "withdrawPool": "4608152604191936877000985",
+  "withdrawShares": "4608152604191936877000985",
+  "activeAmount": "770865938835537811533671",
+  "exchangeRate": "100",
+  "unbondLegacy": {
+    "shares": "4600000000000000000000000",
+    "withdrawEpoch": "29335"
+  },
+  "unbonds_new": [],
+  "validator": {
+    "contractAddress": "0xB817B7C987bE0a0Bc85c807Eb8Dc7848270Cc523",
+    "delegatedAmount": "770865938835537811533671"
+  },
+  "tokenBalanceStakeManager": "0"
+}
