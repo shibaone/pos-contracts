@@ -1034,7 +1034,7 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
     /**
      * @dev Governance wrapper: instruct ValidatorShare to wipe a user's legacy unbond.
      */
-    function adminConsumeValidatorLegacyUnbond(uint256 validatorId, address user) external onlyGovernance {
+    function adminConsumeValidatorLegacyUnbond(uint256 validatorId, address user) external onlyOwner {
         address validatorShareAddr = validators[validatorId].contractAddress;
         require(validatorShareAddr != address(0), "no validator share");
 
@@ -1046,7 +1046,7 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
     /**
      * @dev Governance wrapper: upgrade ValidatorShare implementation.
      */
-    function updateValidatorShareImplementation(uint256 validatorId, address newImplementation) external onlyGovernance {
+    function updateValidatorShareImplementation(uint256 validatorId, address newImplementation) external onlyOwner {
         require(newImplementation != address(0), "invalid implementation");
         address validatorShareAddr = validators[validatorId].contractAddress;
         require(validatorShareAddr != address(0), "no validator share");
