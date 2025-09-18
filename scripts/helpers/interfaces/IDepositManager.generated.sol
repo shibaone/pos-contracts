@@ -1,0 +1,9 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+interface IDepositManager {
+    function depositERC20(address _token, uint256 _amount) external;
+    function depositERC721(address _token, uint256 _tokenId) external;
+    function depositEther() external payable;
+    function transferAssets(address _token, address _user, uint256 _amountOrNFTId) external;
+}

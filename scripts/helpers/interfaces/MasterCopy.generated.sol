@@ -1,0 +1,8 @@
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.4;
+
+interface MasterCopy {
+    event ChangedMasterCopy(address masterCopy);
+
+    function changeMasterCopy(address _masterCopy) external;
+}
