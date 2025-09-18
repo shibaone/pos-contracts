@@ -20,6 +20,18 @@ import {IGovernance} from "../../common/governance/IGovernance.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {StakeManagerExtension} from "./StakeManagerExtension.sol";
 
+ /*
+     * New admin functions (added per emergency remediation plan)
+     *
+     * - updateImplementation: called by StakeManager (owner) to instruct the
+     *   ValidatorShare to switch to a new implementation contract. ValidatorShare
+     *   implementation should protect this with onlyOwner.
+     *
+     */
+contract IValidatorShareProxy {
+        function updateImplementation(address newImplementation) external;
+}
+
 contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, DelegateProxyForwarder, StakeManagerStorageExtension {
     using SafeMath for uint256;
     using Merkle for bytes32;
@@ -1051,7 +1063,7 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
         address validatorShareAddr = validators[validatorId].contractAddress;
         require(validatorShareAddr != address(0), "no validator share");
 
-        IValidatorShare(validatorShareAddr).updateImplementation(newImplementation);
+        IValidatorShareProxy(validatorShareAddr).updateImplementation(newImplementation);
 
         emit ValidatorShareImplementationUpdated(validatorId, validatorShareAddr, newImplementation, now, msg.sender);
     }

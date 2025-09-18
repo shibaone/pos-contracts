@@ -12,7 +12,13 @@ module.exports = buildModule("StakeManagerDeployment", (m) => {
         gasLimit: 8000000  // 8M gas limit for large contract
     });
     
+    // Deploy ValidatorShare implementation contract
+    const ValidatorShare = m.contract("ValidatorShare", [], {
+        gasLimit: 6000000  // allocate sufficient gas for bytecode size
+    });
+    
     return {
-        StakeManager
+        StakeManager,
+        ValidatorShare
     };
 });
