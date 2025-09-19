@@ -161,9 +161,7 @@ library RLPReader {
         return result;
     }
 
-    /**
-     * RLPItem conversions into data types *
-     */
+    /** RLPItem conversions into data types **/
 
     // @returns raw rlp encoding in bytes
     function toRlpBytes(RLPItem memory item) internal pure returns (bytes memory) {
@@ -216,7 +214,9 @@ library RLPReader {
             result := mload(memPtr)
 
             // shift to the correct location if neccesary
-            if lt(len, 32) { result := div(result, exp(256, sub(32, len))) }
+            if lt(len, 32) {
+                result := div(result, exp(256, sub(32, len)))
+            }
         }
 
         return result;
@@ -345,7 +345,7 @@ library RLPReader {
 
         if (len > 0) {
             // left over bytes. Mask is used to remove unwanted bytes from the word
-            uint256 mask = 256 ** (WORD_SIZE - len) - 1;
+            uint256 mask = 256**(WORD_SIZE - len) - 1;
             assembly {
                 let srcpart := and(mload(src), not(mask)) // zero out src
                 let destpart := and(mload(dest), mask) // retrieve the bytes

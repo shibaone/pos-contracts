@@ -1,7 +1,7 @@
 pragma solidity ^0.5.2;
-
 import {StakingInfo} from "../StakingInfo.sol";
 import {Registry} from "../../common/Registry.sol";
+
 
 contract ISlashingManager {
     bytes32 public heimdallId;

@@ -8,8 +8,10 @@ import {IStakeManager} from "../staking/stakeManager/IStakeManager.sol";
 import {IRootChain} from "./IRootChain.sol";
 import {Registry} from "../common/Registry.sol";
 
+
 contract RootChain is RootChainStorage, IRootChain {
     using SafeMath for uint256;
+   
 
     modifier onlyDepositManager() {
         require(msg.sender == registry.getDepositManagerAddress(), "UNAUTHORIZED_DEPOSIT_MANAGER_ONLY");
@@ -20,9 +22,9 @@ contract RootChain is RootChainStorage, IRootChain {
         revert();
     }
 
-    function submitCheckpoint(bytes calldata data, uint256[3][] calldata sigs) external {
-        (address proposer, uint256 start, uint256 end, bytes32 rootHash, bytes32 accountHash, uint256 _borChainID) =
-            abi.decode(data, (address, uint256, uint256, bytes32, bytes32, uint256));
+    function submitCheckpoint(bytes calldata data, uint[3][] calldata sigs) external {
+        (address proposer, uint256 start, uint256 end, bytes32 rootHash, bytes32 accountHash, uint256 _borChainID) = abi
+            .decode(data, (address, uint256, uint256, bytes32, bytes32, uint256));
         require(CHAINID == _borChainID, "Invalid bor chain id");
 
         require(_buildHeaderBlock(proposer, start, end, rootHash), "INCORRECT_HEADER_DATA");
@@ -31,10 +33,10 @@ contract RootChain is RootChainStorage, IRootChain {
         IStakeManager stakeManager = IStakeManager(registry.getStakeManagerAddress());
         uint256 _reward = stakeManager.checkSignatures(
             end.sub(start).add(1),
-            /**
-             * prefix 01 to data
-             *             01 represents positive vote on data and 00 is negative vote
-             *             malicious validator can try to send 2/3 on negative vote so 01 is appended
+            /**  
+                prefix 01 to data 
+                01 represents positive vote on data and 00 is negative vote
+                malicious validator can try to send 2/3 on negative vote so 01 is appended
              */
             keccak256(abi.encodePacked(bytes(hex"01"), data)),
             accountHash,
@@ -71,12 +73,17 @@ contract RootChain is RootChainStorage, IRootChain {
         return _nextHeaderBlock.sub(MAX_DEPOSITS);
     }
 
-    function _buildHeaderBlock(address proposer, uint256 start, uint256 end, bytes32 rootHash) private returns (bool) {
+    function _buildHeaderBlock(
+        address proposer,
+        uint256 start,
+        uint256 end,
+        bytes32 rootHash
+    ) private returns (bool) {
         uint256 nextChildBlock;
         /*
     The ID of the 1st header block is MAX_DEPOSITS.
     if _nextHeaderBlock == MAX_DEPOSITS, then the first header block is yet to be submitted, hence nextChildBlock = 0
-        */
+    */
         if (_nextHeaderBlock > MAX_DEPOSITS) {
             nextChildBlock = headerBlocks[currentHeaderBlock()].end + 1;
         }
@@ -84,8 +91,13 @@ contract RootChain is RootChainStorage, IRootChain {
             return false;
         }
 
-        HeaderBlock memory headerBlock =
-            HeaderBlock({root: rootHash, start: nextChildBlock, end: end, createdAt: now, proposer: proposer});
+        HeaderBlock memory headerBlock = HeaderBlock({
+            root: rootHash,
+            start: nextChildBlock,
+            end: end,
+            createdAt: now,
+            proposer: proposer
+        });
 
         headerBlocks[_nextHeaderBlock] = headerBlock;
         return true;

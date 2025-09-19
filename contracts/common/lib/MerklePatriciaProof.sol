@@ -4,18 +4,19 @@ import {RLPReader} from "./RLPReader.sol";
 
 library MerklePatriciaProof {
     /*
-    * @dev Verifies a merkle patricia proof.
-    * @param value The terminating value in the trie.
-    * @param encodedPath The path in the trie leading to value.
-    * @param rlpParentNodes The rlp encoded stack of nodes.
-    * @param root The root hash of the trie.
-    * @return The boolean validity of the proof.
-    */
-    function verify(bytes memory value, bytes memory encodedPath, bytes memory rlpParentNodes, bytes32 root)
-        internal
-        pure
-        returns (bool)
-    {
+   * @dev Verifies a merkle patricia proof.
+   * @param value The terminating value in the trie.
+   * @param encodedPath The path in the trie leading to value.
+   * @param rlpParentNodes The rlp encoded stack of nodes.
+   * @param root The root hash of the trie.
+   * @return The boolean validity of the proof.
+   */
+    function verify(
+        bytes memory value,
+        bytes memory encodedPath,
+        bytes memory rlpParentNodes,
+        bytes32 root
+    ) internal pure returns (bool) {
         RLPReader.RLPItem memory item = RLPReader.toRlpItem(rlpParentNodes);
         RLPReader.RLPItem[] memory parentNodes = RLPReader.toList(item);
 
@@ -43,7 +44,10 @@ library MerklePatriciaProof {
 
             if (currentNodeList.length == 17) {
                 if (pathPtr == path.length) {
-                    if (keccak256(RLPReader.toBytes(currentNodeList[16])) == keccak256(value)) {
+                    if (
+                        keccak256(RLPReader.toBytes(currentNodeList[16])) ==
+                        keccak256(value)
+                    ) {
                         return true;
                     } else {
                         return false;
@@ -54,18 +58,24 @@ library MerklePatriciaProof {
                 if (nextPathNibble > 16) {
                     return false;
                 }
-                nodeKey = bytes32(RLPReader.toUintStrict(currentNodeList[nextPathNibble]));
+                nodeKey = bytes32(
+                    RLPReader.toUintStrict(currentNodeList[nextPathNibble])
+                );
                 pathPtr += 1;
             } else if (currentNodeList.length == 2) {
                 bytes memory nodeValue = RLPReader.toBytes(currentNodeList[0]);
-                uint256 traversed = _nibblesToTraverse(nodeValue, path, pathPtr);
+                uint256 traversed = _nibblesToTraverse(
+                    nodeValue,
+                    path,
+                    pathPtr
+                );
                 //enforce correct nibble
                 bytes1 prefix = _getNthNibbleOfBytes(0, nodeValue);
                 if (pathPtr + traversed == path.length) {
                     //leaf node
                     if (
-                        keccak256(RLPReader.toBytes(currentNodeList[1])) == keccak256(value)
-                            && (prefix == bytes1(uint8(2)) || prefix == bytes1(uint8(3)))
+                        keccak256(RLPReader.toBytes(currentNodeList[1])) == keccak256(value) && 
+                        (prefix == bytes1(uint8(2)) || prefix == bytes1(uint8(3)))
                     ) {
                         return true;
                     } else {
@@ -79,17 +89,18 @@ library MerklePatriciaProof {
 
                 pathPtr += traversed;
                 nodeKey = bytes32(RLPReader.toUintStrict(currentNodeList[1]));
+
             } else {
                 return false;
             }
         }
     }
 
-    function _nibblesToTraverse(bytes memory encodedPartialPath, bytes memory path, uint256 pathPtr)
-        private
-        pure
-        returns (uint256)
-    {
+    function _nibblesToTraverse(
+        bytes memory encodedPartialPath,
+        bytes memory path,
+        uint256 pathPtr
+    ) private pure returns (uint256) {
         uint256 len;
         // encodedPartialPath has elements that are each two hex characters (1 byte), but partialPath
         // and slicedPath have elements that are each one hex character (1 nibble)
@@ -112,7 +123,11 @@ library MerklePatriciaProof {
     }
 
     // bytes b must be hp encoded
-    function _getNibbleArray(bytes memory b) private pure returns (bytes memory) {
+    function _getNibbleArray(bytes memory b)
+        private
+        pure
+        returns (bytes memory)
+    {
         bytes memory nibbles;
         if (b.length > 0) {
             uint8 offset;
@@ -134,7 +149,14 @@ library MerklePatriciaProof {
         return nibbles;
     }
 
-    function _getNthNibbleOfBytes(uint256 n, bytes memory str) private pure returns (bytes1) {
-        return bytes1(n % 2 == 0 ? uint8(str[n / 2]) / 0x10 : uint8(str[n / 2]) % 0x10);
+    function _getNthNibbleOfBytes(uint256 n, bytes memory str)
+        private
+        pure
+        returns (bytes1)
+    {
+        return
+            bytes1(
+                n % 2 == 0 ? uint8(str[n / 2]) / 0x10 : uint8(str[n / 2]) % 0x10
+            );
     }
 }

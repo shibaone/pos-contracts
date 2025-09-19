@@ -37,7 +37,10 @@ contract MRC20 is BaseERC20 {
 
     function deposit(address user, uint256 amount) public onlyOwner {
         // check for amount and user
-        require(amount > 0 && user != address(0x0), "Insufficient amount or invalid user");
+        require(
+            amount > 0 && user != address(0x0),
+            "Insufficient amount or invalid user"
+        );
 
         // input balance
         uint256 input1 = balanceOf(user);
@@ -99,7 +102,11 @@ contract MRC20 is BaseERC20 {
      * @dev _transfer is invoked by _transferFrom method that is inherited from BaseERC20.
      * This enables us to transfer Bone between users while keeping the interface same as that of an ERC20 Token.
      */
-    function _transfer(address sender, address recipient, uint256 amount) internal {
+    function _transfer(
+        address sender,
+        address recipient,
+        uint256 amount
+    ) internal {
         require(recipient != address(this), "can't send to MRC20");
         _nativeTransfer(recipient, amount);
         emit Transfer(sender, recipient, amount);
@@ -110,9 +117,14 @@ contract MRC20 is BaseERC20 {
     // @dev msg.value checks (if req), emitting logs are handled seperately
     // @param receiver address to transfer native token to
     // @param amount amount of native token to transfer
-    function _nativeTransfer(address receiver, uint256 amount) internal nonReentrant {
+    function _nativeTransfer(
+        address receiver,
+        uint256 amount
+    ) internal nonReentrant {
         uint256 txGasLimit = 5000;
-        (bool success, bytes memory ret) = receiver.call.value(amount).gas(txGasLimit)("");
+        (bool success, bytes memory ret) = receiver.call.value(amount).gas(
+            txGasLimit
+        )("");
         if (!success) {
             assembly {
                 revert(add(ret, 0x20), mload(ret)) // bubble up revert

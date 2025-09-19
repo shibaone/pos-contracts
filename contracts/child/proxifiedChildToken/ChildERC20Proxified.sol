@@ -6,10 +6,12 @@ import "../ChildERC20.sol";
 contract ChildERC20Proxified is ChildERC20, Initializable {
     constructor() public ChildERC20(address(0x1), address(0x1), "", "", 18) {}
 
-    function initialize(address _token, string calldata name, string calldata symbol, uint8 decimals)
-        external
-        initializer
-    {
+    function initialize(
+        address _token,
+        string calldata name,
+        string calldata symbol,
+        uint8 decimals
+    ) external initializer {
         require(_token != address(0x0));
         token = _token;
         _name = name;
