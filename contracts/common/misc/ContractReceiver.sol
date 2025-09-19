@@ -10,6 +10,5 @@ contract ContractReceiver {
     /// @param _from Transaction initiator, analogue of msg.sender
     /// @param _value Number of tokens to transfer.
     /// @param _data Data containig a function signature and/or parameters
-    function tokenFallback(address _from, uint256 _value, bytes memory _data)
-        public;
+    function tokenFallback(address _from, uint256 _value, bytes memory _data) public;
 }

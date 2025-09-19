@@ -13,7 +13,6 @@ import {Registry} from "../../common/Registry.sol";
 import {StakingInfo} from "../StakingInfo.sol";
 import "./ISlashingManager.sol";
 
-
 contract SlashingManager is ISlashingManager, Ownable {
     using SafeMath for uint256;
     using ECVerify for bytes32;
@@ -23,21 +22,15 @@ contract SlashingManager is ISlashingManager, Ownable {
         _;
     }
 
-    constructor(
-        address _registry,
-        address _logger,
-        string memory _heimdallId
-    ) public {
+    constructor(address _registry, address _logger, string memory _heimdallId) public {
         registry = Registry(_registry);
         logger = StakingInfo(_logger);
         heimdallId = keccak256(abi.encodePacked(_heimdallId));
     }
 
     function updateSlashedAmounts(bytes memory data, bytes memory sigs) public {
-        (uint256 _slashingNonce, address proposer, bytes memory _slashingInfoList) = abi.decode(
-            data,
-            (uint256, address, bytes)
-        );
+        (uint256 _slashingNonce, address proposer, bytes memory _slashingInfoList) =
+            abi.decode(data, (uint256, address, bytes));
 
         slashingNonce = slashingNonce.add(1);
         require(slashingNonce == _slashingNonce, "Invalid slashing nonce");
@@ -102,7 +95,7 @@ contract SlashingManager is ISlashingManager, Ownable {
                 lastAdd = signer;
                 uint256 amount;
                 uint256 delegatedAmount;
-                (amount,,,,,,,,,,,delegatedAmount,) = stakeManager.validators(validatorId);
+                (amount,,,,,,,,,,, delegatedAmount,) = stakeManager.validators(validatorId);
 
                 // add delegation power
                 amount = amount.add(delegatedAmount);
@@ -128,11 +121,7 @@ contract SlashingManager is ISlashingManager, Ownable {
     }
 
     // Housekeeping function. @todo remove later
-    function drainTokens(
-        uint256 value,
-        address token,
-        address destination
-    ) external onlyOwner {
+    function drainTokens(uint256 value, address token, address destination) external onlyOwner {
         require(IERC20(token).transfer(destination, value), "Transfer failed");
     }
 }

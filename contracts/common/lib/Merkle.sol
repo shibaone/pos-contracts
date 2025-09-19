@@ -1,12 +1,11 @@
 pragma solidity ^0.5.2;
 
 library Merkle {
-    function checkMembership(
-        bytes32 leaf,
-        uint256 index,
-        bytes32 rootHash,
-        bytes memory proof
-    ) internal pure returns (bool) {
+    function checkMembership(bytes32 leaf, uint256 index, bytes32 rootHash, bytes memory proof)
+        internal
+        pure
+        returns (bool)
+    {
         require(proof.length % 32 == 0, "Invalid proof length");
         uint256 proofHeight = proof.length / 32;
         // Proof of size n means, height of the tree is n+1.
@@ -21,13 +20,9 @@ library Merkle {
             }
 
             if (index % 2 == 0) {
-                computedHash = keccak256(
-                    abi.encodePacked(computedHash, proofElement)
-                );
+                computedHash = keccak256(abi.encodePacked(computedHash, proofElement));
             } else {
-                computedHash = keccak256(
-                    abi.encodePacked(proofElement, computedHash)
-                );
+                computedHash = keccak256(abi.encodePacked(proofElement, computedHash));
             }
 
             index = index / 2;

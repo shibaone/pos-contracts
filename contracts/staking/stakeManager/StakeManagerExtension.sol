@@ -20,26 +20,22 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
 
     IValidatorRegistry public validatorRegistry;
 
-     function updateValidatorRegistry(address _newContract) public onlyOwner {
+    function updateValidatorRegistry(address _newContract) public onlyOwner {
         require(_newContract != address(0), "address cannot be zero");
         validatorRegistry = IValidatorRegistry(_newContract);
     }
 
-    function checkValidatorWhitelisting(address validator) public view returns(bool){
-        if(validatorRegistry.validatorWhitelistingEnable()){
+    function checkValidatorWhitelisting(address validator) public view returns (bool) {
+        if (validatorRegistry.validatorWhitelistingEnable()) {
             return validatorRegistry.validators(validator);
-        }
-        else {
+        } else {
             return true;
         }
     }
 
-    function startAuction(
-        uint256 validatorId,
-        uint256 amount,
-        bool _acceptDelegation,
-        bytes calldata _signerPubkey
-    ) external {
+    function startAuction(uint256 validatorId, uint256 amount, bool _acceptDelegation, bytes calldata _signerPubkey)
+        external
+    {
         uint256 currentValidatorAmount = validators[validatorId].amount;
 
         require(
@@ -49,8 +45,8 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
         uint256 senderValidatorId = signerToValidator[msg.sender];
         // make sure that signer wasn't used already
         require(
-            NFTContract.balanceOf(msg.sender) == 0 && // existing validators can't bid
-                senderValidatorId != INCORRECT_VALIDATOR_ID,
+            NFTContract.balanceOf(msg.sender) == 0 // existing validators can't bid
+                && senderValidatorId != INCORRECT_VALIDATOR_ID,
             "Already used address"
         );
 
@@ -97,7 +93,10 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
 
     function confirmAuctionBid(
         uint256 validatorId,
-        uint256 heimdallFee, /** for new validator */
+        uint256 heimdallFee,
+        /**
+         * for new validator
+         */
         IStakeManager stakeManager
     ) external {
         Auction storage auction = validatorAuction[validatorId];
@@ -129,12 +128,7 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
             logger.logConfirmAuction(validatorId, validatorId, validatorAmount);
         } else {
             stakeManager.dethroneAndStake(
-                auctionUser, 
-                heimdallFee,
-                validatorId,
-                auctionAmount,
-                auction.acceptDelegation,
-                auction.signerPubkey
+                auctionUser, heimdallFee, validatorId, auctionAmount, auction.acceptDelegation, auction.signerPubkey
             );
         }
         uint256 startEpoch = auction.startEpoch;
@@ -142,7 +136,7 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
         validatorAuction[validatorId].startEpoch = startEpoch;
     }
 
-    function migrateValidatorsData(uint256 validatorIdFrom, uint256 validatorIdTo) external {       
+    function migrateValidatorsData(uint256 validatorIdFrom, uint256 validatorIdTo) external {
         for (uint256 i = validatorIdFrom; i < validatorIdTo; ++i) {
             ValidatorShare contractAddress = ValidatorShare(validators[i].contractAddress);
             if (contractAddress != ValidatorShare(0)) {
@@ -170,7 +164,9 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
         maxRewardedCheckpoints = _maxRewardedCheckpoints;
         checkpointRewardDelta = _checkpointRewardDelta;
 
-        _getOrCacheEventsHub().logRewardParams(_rewardDecreasePerCheckpoint, _maxRewardedCheckpoints, _checkpointRewardDelta);
+        _getOrCacheEventsHub().logRewardParams(
+            _rewardDecreasePerCheckpoint, _maxRewardedCheckpoints, _checkpointRewardDelta
+        );
     }
 
     function updateCommissionRate(uint256 validatorId, uint256 newCommissionRate) external {
@@ -183,12 +179,14 @@ contract StakeManagerExtension is StakeManagerStorage, Initializable, StakeManag
         );
 
         require(newCommissionRate <= MAX_COMMISION_RATE, "Incorrect value");
-        _getOrCacheEventsHub().logUpdateCommissionRate(validatorId, newCommissionRate, validators[validatorId].commissionRate);
+        _getOrCacheEventsHub().logUpdateCommissionRate(
+            validatorId, newCommissionRate, validators[validatorId].commissionRate
+        );
         validators[validatorId].commissionRate = newCommissionRate;
         validators[validatorId].lastCommissionUpdate = _epoch;
     }
 
-    function _getOrCacheEventsHub() private returns(EventsHub) {
+    function _getOrCacheEventsHub() private returns (EventsHub) {
         EventsHub _eventsHub = EventsHub(eventsHub);
         if (_eventsHub == EventsHub(0x0)) {
             _eventsHub = EventsHub(Registry(registry).contractMap(keccak256("eventsHub")));

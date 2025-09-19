@@ -4,10 +4,14 @@ import {Registry} from "../common/Registry.sol";
 import {SafeMath} from "openzeppelin-solidity/contracts/math/SafeMath.sol";
 import {Ownable} from "openzeppelin-solidity/contracts/ownership/Ownable.sol";
 
-
 // dummy interface to avoid cyclic dependency
 contract IStakeManagerLocal {
-    enum Status {Inactive, Active, Locked, Unstaked}
+    enum Status {
+        Inactive,
+        Active,
+        Locked,
+        Unstaked
+    }
 
     struct Validator {
         uint256 amount;
@@ -28,16 +32,14 @@ contract IStakeManagerLocal {
     function currentValidatorSetTotalStake() public view returns (uint256);
 
     // signer to Validator mapping
-    function signerToValidator(address validatorAddress)
-        public
-        view
-        returns (uint256);
+    function signerToValidator(address validatorAddress) public view returns (uint256);
 
     function isValidator(uint256 validatorId) public view returns (bool);
 }
 
 contract StakingInfo is Ownable {
     using SafeMath for uint256;
+
     mapping(uint256 => uint256) public validatorNonce;
 
     /// @dev Emitted when validator stakes in '_stakeFor()' in StakeManager.
@@ -63,12 +65,7 @@ contract StakingInfo is Ownable {
     /// @param validatorId unique integer to identify a validator.
     /// @param amount staking amount.
     /// @param total total staking amount.
-    event Unstaked(
-        address indexed user,
-        uint256 indexed validatorId,
-        uint256 amount,
-        uint256 total
-    );
+    event Unstaked(address indexed user, uint256 indexed validatorId, uint256 amount, uint256 total);
 
     /// @dev Emitted when validator unstakes in '_unstake()'.
     /// @param user address of the validator.
@@ -98,19 +95,12 @@ contract StakingInfo is Ownable {
         bytes signerPubkey
     );
     event Restaked(uint256 indexed validatorId, uint256 amount, uint256 total);
-    event Jailed(
-        uint256 indexed validatorId,
-        uint256 indexed exitEpoch,
-        address indexed signer
-    );
+    event Jailed(uint256 indexed validatorId, uint256 indexed exitEpoch, address indexed signer);
     event UnJailed(uint256 indexed validatorId, address indexed signer);
     event Slashed(uint256 indexed nonce, uint256 indexed amount);
     event ThresholdChange(uint256 newThreshold, uint256 oldThreshold);
     event DynastyValueChange(uint256 newDynasty, uint256 oldDynasty);
-    event ProposerBonusChange(
-        uint256 newProposerBonus,
-        uint256 oldProposerBonus
-    );
+    event ProposerBonusChange(uint256 newProposerBonus, uint256 oldProposerBonus);
 
     event RewardUpdate(uint256 newReward, uint256 oldReward);
 
@@ -118,94 +108,49 @@ contract StakingInfo is Ownable {
     /// @param validatorId unique integer to identify a validator.
     /// @param nonce to synchronize the events in heimdal.
     /// @param newAmount the updated stake amount.
-    event StakeUpdate(
-        uint256 indexed validatorId,
-        uint256 indexed nonce,
-        uint256 indexed newAmount
-    );
-    event ClaimRewards(
-        uint256 indexed validatorId,
-        uint256 indexed amount,
-        uint256 indexed totalAmount
-    );
-    event StartAuction(
-        uint256 indexed validatorId,
-        uint256 indexed amount,
-        uint256 indexed auctionAmount
-    );
-    event ConfirmAuction(
-        uint256 indexed newValidatorId,
-        uint256 indexed oldValidatorId,
-        uint256 indexed amount
-    );
+    event StakeUpdate(uint256 indexed validatorId, uint256 indexed nonce, uint256 indexed newAmount);
+    event ClaimRewards(uint256 indexed validatorId, uint256 indexed amount, uint256 indexed totalAmount);
+    event StartAuction(uint256 indexed validatorId, uint256 indexed amount, uint256 indexed auctionAmount);
+    event ConfirmAuction(uint256 indexed newValidatorId, uint256 indexed oldValidatorId, uint256 indexed amount);
     event TopUpFee(address indexed user, uint256 indexed fee);
     event ClaimFee(address indexed user, uint256 indexed fee);
     // Delegator events
-    event ShareMinted(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 indexed amount,
-        uint256 tokens
-    );
-    event ShareBurned(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 indexed amount,
-        uint256 tokens
-    );
-    event DelegatorClaimedRewards(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 indexed rewards
-    );
-    event DelegatorRestaked(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 indexed totalStaked
-    );
-    event DelegatorUnstaked(
-        uint256 indexed validatorId,
-        address indexed user,
-        uint256 amount
-    );
+    event ShareMinted(uint256 indexed validatorId, address indexed user, uint256 indexed amount, uint256 tokens);
+    event ShareBurned(uint256 indexed validatorId, address indexed user, uint256 indexed amount, uint256 tokens);
+    event DelegatorClaimedRewards(uint256 indexed validatorId, address indexed user, uint256 indexed rewards);
+    event DelegatorRestaked(uint256 indexed validatorId, address indexed user, uint256 indexed totalStaked);
+    event DelegatorUnstaked(uint256 indexed validatorId, address indexed user, uint256 amount);
     event UpdateCommissionRate(
-        uint256 indexed validatorId,
-        uint256 indexed newCommissionRate,
-        uint256 indexed oldCommissionRate
+        uint256 indexed validatorId, uint256 indexed newCommissionRate, uint256 indexed oldCommissionRate
     );
 
     Registry public registry;
 
     modifier onlyValidatorContract(uint256 validatorId) {
         address _contract;
-        (, , , , , , _contract, ) = IStakeManagerLocal(
-            registry.getStakeManagerAddress()
-        )
-            .validators(validatorId);
-        require(_contract == msg.sender,
-        "Invalid sender, not validator");
+        (,,,,,, _contract,) = IStakeManagerLocal(registry.getStakeManagerAddress()).validators(validatorId);
+        require(_contract == msg.sender, "Invalid sender, not validator");
         _;
     }
 
     modifier StakeManagerOrValidatorContract(uint256 validatorId) {
         address _contract;
         address _stakeManager = registry.getStakeManagerAddress();
-        (, , , , , , _contract, ) = IStakeManagerLocal(_stakeManager).validators(
-            validatorId
+        (,,,,,, _contract,) = IStakeManagerLocal(_stakeManager).validators(validatorId);
+        require(
+            _contract == msg.sender || _stakeManager == msg.sender,
+            "Invalid sender, not stake manager or validator contract"
         );
-        require(_contract == msg.sender || _stakeManager == msg.sender,
-        "Invalid sender, not stake manager or validator contract");
         _;
     }
 
     modifier onlyStakeManager() {
-        require(registry.getStakeManagerAddress() == msg.sender,
-        "Invalid sender, not stake manager");
+        require(registry.getStakeManagerAddress() == msg.sender, "Invalid sender, not stake manager");
         _;
     }
+
     modifier onlySlashingManager() {
-        require(registry.getSlashingManagerAddress() == msg.sender,
-        "Invalid sender, not slashing manager");
+        require(registry.getSlashingManagerAddress() == msg.sender, "Invalid sender, not slashing manager");
         _;
     }
 
@@ -213,16 +158,13 @@ contract StakingInfo is Ownable {
         registry = Registry(_registry);
     }
 
-    function updateNonce(
-        uint256[] calldata validatorIds,
-        uint256[] calldata nonces
-    ) external onlyOwner {
+    function updateNonce(uint256[] calldata validatorIds, uint256[] calldata nonces) external onlyOwner {
         require(validatorIds.length == nonces.length, "args length mismatch");
 
         for (uint256 i = 0; i < validatorIds.length; ++i) {
             validatorNonce[validatorIds[i]] = nonces[i];
         }
-    } 
+    }
 
     function logStaked(
         address signer,
@@ -233,147 +175,78 @@ contract StakingInfo is Ownable {
         uint256 total
     ) public onlyStakeManager {
         validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
-        emit Staked(
-            signer,
-            validatorId,
-            validatorNonce[validatorId],
-            activationEpoch,
-            amount,
-            total,
-            signerPubkey
-        );
+        emit Staked(signer, validatorId, validatorNonce[validatorId], activationEpoch, amount, total, signerPubkey);
     }
 
-    function logUnstaked(
-        address user,
-        uint256 validatorId,
-        uint256 amount,
-        uint256 total
-    ) public onlyStakeManager {
+    function logUnstaked(address user, uint256 validatorId, uint256 amount, uint256 total) public onlyStakeManager {
         emit Unstaked(user, validatorId, amount, total);
     }
 
-    function logUnstakeInit(
-        address user,
-        uint256 validatorId,
-        uint256 deactivationEpoch,
-        uint256 amount
-    ) public onlyStakeManager {
-        validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
-        emit UnstakeInit(
-            user,
-            validatorId,
-            validatorNonce[validatorId],
-            deactivationEpoch,
-            amount
-        );
-    }
-
-    function logSignerChange(
-        uint256 validatorId,
-        address oldSigner,
-        address newSigner,
-        bytes memory signerPubkey
-    ) public onlyStakeManager {
-        validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
-        emit SignerChange(
-            validatorId,
-            validatorNonce[validatorId],
-            oldSigner,
-            newSigner,
-            signerPubkey
-        );
-    }
-
-    function logRestaked(uint256 validatorId, uint256 amount, uint256 total)
+    function logUnstakeInit(address user, uint256 validatorId, uint256 deactivationEpoch, uint256 amount)
         public
         onlyStakeManager
     {
+        validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
+        emit UnstakeInit(user, validatorId, validatorNonce[validatorId], deactivationEpoch, amount);
+    }
+
+    function logSignerChange(uint256 validatorId, address oldSigner, address newSigner, bytes memory signerPubkey)
+        public
+        onlyStakeManager
+    {
+        validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
+        emit SignerChange(validatorId, validatorNonce[validatorId], oldSigner, newSigner, signerPubkey);
+    }
+
+    function logRestaked(uint256 validatorId, uint256 amount, uint256 total) public onlyStakeManager {
         emit Restaked(validatorId, amount, total);
     }
 
-    function logJailed(uint256 validatorId, uint256 exitEpoch, address signer)
-        public
-        onlyStakeManager
-    {
+    function logJailed(uint256 validatorId, uint256 exitEpoch, address signer) public onlyStakeManager {
         emit Jailed(validatorId, exitEpoch, signer);
     }
 
-    function logUnjailed(uint256 validatorId, address signer)
-        public
-        onlyStakeManager
-    {
+    function logUnjailed(uint256 validatorId, address signer) public onlyStakeManager {
         emit UnJailed(validatorId, signer);
     }
 
-    function logSlashed(uint256 nonce, uint256 amount)
-        public
-        onlySlashingManager
-    {
+    function logSlashed(uint256 nonce, uint256 amount) public onlySlashingManager {
         emit Slashed(nonce, amount);
     }
 
-    function logThresholdChange(uint256 newThreshold, uint256 oldThreshold)
-        public
-        onlyStakeManager
-    {
+    function logThresholdChange(uint256 newThreshold, uint256 oldThreshold) public onlyStakeManager {
         emit ThresholdChange(newThreshold, oldThreshold);
     }
 
-    function logDynastyValueChange(uint256 newDynasty, uint256 oldDynasty)
-        public
-        onlyStakeManager
-    {
+    function logDynastyValueChange(uint256 newDynasty, uint256 oldDynasty) public onlyStakeManager {
         emit DynastyValueChange(newDynasty, oldDynasty);
     }
 
-    function logProposerBonusChange(
-        uint256 newProposerBonus,
-        uint256 oldProposerBonus
-    ) public onlyStakeManager {
+    function logProposerBonusChange(uint256 newProposerBonus, uint256 oldProposerBonus) public onlyStakeManager {
         emit ProposerBonusChange(newProposerBonus, oldProposerBonus);
     }
 
-    function logRewardUpdate(uint256 newReward, uint256 oldReward)
-        public
-        onlyStakeManager
-    {
+    function logRewardUpdate(uint256 newReward, uint256 oldReward) public onlyStakeManager {
         emit RewardUpdate(newReward, oldReward);
     }
 
-    function logStakeUpdate(uint256 validatorId)
-        public
-        StakeManagerOrValidatorContract(validatorId)
-    {
+    function logStakeUpdate(uint256 validatorId) public StakeManagerOrValidatorContract(validatorId) {
         validatorNonce[validatorId] = validatorNonce[validatorId].add(1);
-        emit StakeUpdate(
-            validatorId,
-            validatorNonce[validatorId],
-            totalValidatorStake(validatorId)
-        );
+        emit StakeUpdate(validatorId, validatorNonce[validatorId], totalValidatorStake(validatorId));
     }
 
-    function logClaimRewards(
-        uint256 validatorId,
-        uint256 amount,
-        uint256 totalAmount
-    ) public onlyStakeManager {
+    function logClaimRewards(uint256 validatorId, uint256 amount, uint256 totalAmount) public onlyStakeManager {
         emit ClaimRewards(validatorId, amount, totalAmount);
     }
 
-    function logStartAuction(
-        uint256 validatorId,
-        uint256 amount,
-        uint256 auctionAmount
-    ) public onlyStakeManager {
+    function logStartAuction(uint256 validatorId, uint256 amount, uint256 auctionAmount) public onlyStakeManager {
         emit StartAuction(validatorId, amount, auctionAmount);
     }
 
-    function logConfirmAuction(
-        uint256 newValidatorId,
-        uint256 oldValidatorId,
-        uint256 amount
-    ) public onlyStakeManager {
+    function logConfirmAuction(uint256 newValidatorId, uint256 oldValidatorId, uint256 amount)
+        public
+        onlyStakeManager
+    {
         emit ConfirmAuction(newValidatorId, oldValidatorId, amount);
     }
 
@@ -397,94 +270,60 @@ contract StakingInfo is Ownable {
             uint256 _status
         )
     {
-        IStakeManagerLocal stakeManager = IStakeManagerLocal(
-            registry.getStakeManagerAddress()
-        );
+        IStakeManagerLocal stakeManager = IStakeManagerLocal(registry.getStakeManagerAddress());
         address _contract;
         IStakeManagerLocal.Status status;
-        (
-            amount,
-            reward,
-            activationEpoch,
-            deactivationEpoch,
-            ,
-            signer,
-            _contract,
-            status
-        ) = stakeManager.validators(validatorId);
+        (amount, reward, activationEpoch, deactivationEpoch,, signer, _contract, status) =
+            stakeManager.validators(validatorId);
         _status = uint256(status);
         if (_contract != address(0x0)) {
             reward += IStakeManagerLocal(_contract).validatorRewards();
         }
     }
 
-    function totalValidatorStake(uint256 validatorId)
-        public
-        view
-        returns (uint256 validatorStake)
-    {
+    function totalValidatorStake(uint256 validatorId) public view returns (uint256 validatorStake) {
         address contractAddress;
-        (validatorStake, , , , , , contractAddress, ) = IStakeManagerLocal(
-            registry.getStakeManagerAddress()
-        )
-            .validators(validatorId);
+        (validatorStake,,,,,, contractAddress,) =
+            IStakeManagerLocal(registry.getStakeManagerAddress()).validators(validatorId);
         if (contractAddress != address(0x0)) {
             validatorStake += IStakeManagerLocal(contractAddress).activeAmount();
         }
     }
 
-    function getAccountStateRoot()
-        public
-        view
-        returns (bytes32 accountStateRoot)
-    {
-        accountStateRoot = IStakeManagerLocal(registry.getStakeManagerAddress())
-            .accountStateRoot();
+    function getAccountStateRoot() public view returns (bytes32 accountStateRoot) {
+        accountStateRoot = IStakeManagerLocal(registry.getStakeManagerAddress()).accountStateRoot();
     }
 
-    function getValidatorContractAddress(uint256 validatorId)
-        public
-        view
-        returns (address ValidatorContract)
-    {
-        (, , , , , , ValidatorContract, ) = IStakeManagerLocal(
-            registry.getStakeManagerAddress()
-        )
-            .validators(validatorId);
+    function getValidatorContractAddress(uint256 validatorId) public view returns (address ValidatorContract) {
+        (,,,,,, ValidatorContract,) = IStakeManagerLocal(registry.getStakeManagerAddress()).validators(validatorId);
     }
 
     // validator Share contract logging func
-    function logShareMinted(
-        uint256 validatorId,
-        address user,
-        uint256 amount,
-        uint256 tokens
-    ) public onlyValidatorContract(validatorId) {
+    function logShareMinted(uint256 validatorId, address user, uint256 amount, uint256 tokens)
+        public
+        onlyValidatorContract(validatorId)
+    {
         emit ShareMinted(validatorId, user, amount, tokens);
     }
 
-    function logShareBurned(
-        uint256 validatorId,
-        address user,
-        uint256 amount,
-        uint256 tokens
-    ) public onlyValidatorContract(validatorId) {
+    function logShareBurned(uint256 validatorId, address user, uint256 amount, uint256 tokens)
+        public
+        onlyValidatorContract(validatorId)
+    {
         emit ShareBurned(validatorId, user, amount, tokens);
     }
 
-    function logDelegatorClaimRewards(
-        uint256 validatorId,
-        address user,
-        uint256 rewards
-    ) public onlyValidatorContract(validatorId) {
+    function logDelegatorClaimRewards(uint256 validatorId, address user, uint256 rewards)
+        public
+        onlyValidatorContract(validatorId)
+    {
         emit DelegatorClaimedRewards(validatorId, user, rewards);
     }
 
-    function logDelegatorRestaked(
-        uint256 validatorId,
-        address user,
-        uint256 totalStaked
-    ) public onlyValidatorContract(validatorId) {
+    function logDelegatorRestaked(uint256 validatorId, address user, uint256 totalStaked)
+        public
+        onlyValidatorContract(validatorId)
+    {
         emit DelegatorRestaked(validatorId, user, totalStaked);
     }
 
@@ -496,15 +335,10 @@ contract StakingInfo is Ownable {
     }
 
     // deprecated
-    function logUpdateCommissionRate(
-        uint256 validatorId,
-        uint256 newCommissionRate,
-        uint256 oldCommissionRate
-    ) public onlyValidatorContract(validatorId) {
-        emit UpdateCommissionRate(
-            validatorId,
-            newCommissionRate,
-            oldCommissionRate
-        );
+    function logUpdateCommissionRate(uint256 validatorId, uint256 newCommissionRate, uint256 oldCommissionRate)
+        public
+        onlyValidatorContract(validatorId)
+    {
+        emit UpdateCommissionRate(validatorId, newCommissionRate, oldCommissionRate);
     }
 }

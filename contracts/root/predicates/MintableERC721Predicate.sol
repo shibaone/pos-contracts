@@ -8,9 +8,7 @@ import {Common} from "../../common/lib/Common.sol";
 import {RLPEncode} from "../../common/lib/RLPEncode.sol";
 
 import {ERC721Predicate} from "./ERC721Predicate.sol";
-import {
-    ERC721PlasmaMintable
-} from "../../common/tokens/ERC721PlasmaMintable.sol";
+import {ERC721PlasmaMintable} from "../../common/tokens/ERC721PlasmaMintable.sol";
 
 contract MintableERC721Predicate is ERC721Predicate {
     struct MintableTokenInfo {
@@ -27,80 +25,58 @@ contract MintableERC721Predicate is ERC721Predicate {
     {}
 
     /**
-   * @notice Start an exit for a token that was minted and burnt on the side chain
-   * @param data RLP encoded data of the burn tx
-   * @param mintTx Signed mint transaction
-   */
-    function startExitForMintableBurntToken(
-        bytes calldata data,
-        bytes calldata mintTx
-    ) external {
-        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) = abi
-            .decode(
-            startExitWithBurntTokens(data),
-            (address, uint256, address, uint256)
-        );
+     * @notice Start an exit for a token that was minted and burnt on the side chain
+     * @param data RLP encoded data of the burn tx
+     * @param mintTx Signed mint transaction
+     */
+    function startExitForMintableBurntToken(bytes calldata data, bytes calldata mintTx) external {
+        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) =
+            abi.decode(startExitWithBurntTokens(data), (address, uint256, address, uint256));
         processMint(mintTx, rootToken, tokenId, childToken, exitId);
     }
 
     /**
-   * @notice Start a MoreVP style exit for a token that was minted on the side chain
-   * @param data RLP encoded data of the burn tx
-   * @param mintTx Signed mint transaction
-   */
-    function startExitForMintableToken(
-        bytes calldata data,
-        bytes calldata mintTx,
-        bytes calldata exitTx
-    ) external payable {
-        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) = abi
-            .decode(
-            startExit(data, exitTx),
-            (address, uint256, address, uint256)
-        );
+     * @notice Start a MoreVP style exit for a token that was minted on the side chain
+     * @param data RLP encoded data of the burn tx
+     * @param mintTx Signed mint transaction
+     */
+    function startExitForMintableToken(bytes calldata data, bytes calldata mintTx, bytes calldata exitTx)
+        external
+        payable
+    {
+        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) =
+            abi.decode(startExit(data, exitTx), (address, uint256, address, uint256));
         processMint(mintTx, rootToken, tokenId, childToken, exitId);
     }
 
     /**
-   * @notice Start an exit for a token with metadata that was minted and burnt on the side chain
-   * @param data RLP encoded data of the burn tx
-   * @param mintTx Signed mint transaction
-   */
-    function startExitForMetadataMintableBurntToken(
-        bytes calldata data,
-        bytes calldata mintTx
-    ) external {
-        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) = abi
-            .decode(
-            startExitWithBurntTokens(data),
-            (address, uint256, address, uint256)
-        );
+     * @notice Start an exit for a token with metadata that was minted and burnt on the side chain
+     * @param data RLP encoded data of the burn tx
+     * @param mintTx Signed mint transaction
+     */
+    function startExitForMetadataMintableBurntToken(bytes calldata data, bytes calldata mintTx) external {
+        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) =
+            abi.decode(startExitWithBurntTokens(data), (address, uint256, address, uint256));
         processMintWithTokenURI(mintTx, rootToken, tokenId, childToken, exitId);
     }
 
     /**
-   * @notice Start a MoreVP style exit for a token with metadata that was minted on the side chain
-   * @param data RLP encoded data of the burn tx
-   * @param mintTx Signed mint transaction
-   * @param exitTx Signed exit transaction
-   */
-    function startExitForMetadataMintableToken(
-        bytes calldata data,
-        bytes calldata mintTx,
-        bytes calldata exitTx
-    ) external payable {
-        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) = abi
-            .decode(
-            startExit(data, exitTx),
-            (address, uint256, address, uint256)
-        );
+     * @notice Start a MoreVP style exit for a token with metadata that was minted on the side chain
+     * @param data RLP encoded data of the burn tx
+     * @param mintTx Signed mint transaction
+     * @param exitTx Signed exit transaction
+     */
+    function startExitForMetadataMintableToken(bytes calldata data, bytes calldata mintTx, bytes calldata exitTx)
+        external
+        payable
+    {
+        (address rootToken, uint256 tokenId, address childToken, uint256 exitId) =
+            abi.decode(startExit(data, exitTx), (address, uint256, address, uint256));
         processMintWithTokenURI(mintTx, rootToken, tokenId, childToken, exitId);
     }
 
     function onFinalizeExit(bytes calldata data) external onlyWithdrawManager {
-        (uint256 exitId, address token, address exitor, uint256 tokenId) = decodeExitForProcessExit(
-            data
-        );
+        (uint256 exitId, address token, address exitor, uint256 tokenId) = decodeExitForProcessExit(data);
         MintableTokenInfo storage info = exitToMintableTokenInfo[exitId];
 
         // check that the signer of the mint tx is a valid minter in the root contract
@@ -122,23 +98,16 @@ contract MintableERC721Predicate is ERC721Predicate {
         }
     }
 
-    function processMint(
-        bytes memory mintTx,
-        address rootToken,
-        uint256 tokenId,
-        address childToken,
-        uint256 exitId
-    ) internal {
+    function processMint(bytes memory mintTx, address rootToken, uint256 tokenId, address childToken, uint256 exitId)
+        internal
+    {
         RLPReader.RLPItem[] memory txList = mintTx.toRlpItem().toList();
         _processRawMint(RLPReader.toBytes(txList[5]), tokenId);
         ERC721PlasmaMintable token = ERC721PlasmaMintable(rootToken);
-        require(
-            !token.exists(tokenId),
-            "MintableERC721Predicate.processMint: Token being exited already exists"
-        );
+        require(!token.exists(tokenId), "MintableERC721Predicate.processMint: Token being exited already exists");
 
         // Will lazily (at the time of processExits) check that the signer of the mint tx is a valid minter in the root contract
-        (address minter, ) = getAddressFromTx(txList);
+        (address minter,) = getAddressFromTx(txList);
         exitToMintableTokenInfo[exitId] = MintableTokenInfo(
             "",
             /* uri */
@@ -152,23 +121,16 @@ contract MintableERC721Predicate is ERC721Predicate {
         );
     }
 
-    function _processRawMint(bytes memory txData, uint256 tokenId)
-        internal
-        pure
-    {
+    function _processRawMint(bytes memory txData, uint256 tokenId) internal pure {
         bytes4 funcSig = BytesLib.toBytes4(BytesLib.slice(txData, 0, 4));
         require(
             funcSig == 0x40c10f19, // keccak256('mint(address,uint256)').slice(0, 4)
             "MintableERC721Predicate._processRawMint: funcSig does not match with mint"
         );
         uint256 _tokenId;
-        (, _tokenId) = abi.decode(
-            BytesLib.slice(txData, 4, txData.length - 4),
-            (address, uint256)
-        );
+        (, _tokenId) = abi.decode(BytesLib.slice(txData, 4, txData.length - 4), (address, uint256));
         require(
-            _tokenId == tokenId,
-            "MintableERC721Predicate._processRawMint: TokenIds in exit and mint tx do not match"
+            _tokenId == tokenId, "MintableERC721Predicate._processRawMint: TokenIds in exit and mint tx do not match"
         );
     }
 
@@ -181,22 +143,14 @@ contract MintableERC721Predicate is ERC721Predicate {
     ) internal {
         ERC721PlasmaMintable token = ERC721PlasmaMintable(rootToken);
         require(
-            !token.exists(tokenId),
-            "MintableERC721Predicate.processMintWithTokenURI: Token being exited already exists"
+            !token.exists(tokenId), "MintableERC721Predicate.processMintWithTokenURI: Token being exited already exists"
         );
 
         RLPReader.RLPItem[] memory txList = mintTx.toRlpItem().toList();
-        string memory uri = _processRawMintWithTokenURI(
-            RLPReader.toBytes(txList[5]),
-            tokenId
-        );
+        string memory uri = _processRawMintWithTokenURI(RLPReader.toBytes(txList[5]), tokenId);
         // Will lazily (at the time of processExits) check that the signer of the mint tx is a valid minter in the root contract
-        (address minter, ) = getAddressFromTx(txList);
-        exitToMintableTokenInfo[exitId] = MintableTokenInfo(
-            uri,
-            minter,
-            false /* isVanillaMint */
-        );
+        (address minter,) = getAddressFromTx(txList);
+        exitToMintableTokenInfo[exitId] = MintableTokenInfo(uri, minter, false /* isVanillaMint */ );
         address _childToken = RLPReader.toAddress(txList[3]); // corresponds to "to" field in tx
         require(
             childToken == _childToken,
@@ -215,10 +169,7 @@ contract MintableERC721Predicate is ERC721Predicate {
             "MintableERC721Predicate._processRawMintWithTokenURI: funcSig does not match mintWithTokenURI"
         );
         uint256 _tokenId;
-        (, _tokenId, uri) = abi.decode(
-            BytesLib.slice(txData, 4, txData.length - 4),
-            (address, uint256, string)
-        );
+        (, _tokenId, uri) = abi.decode(BytesLib.slice(txData, 4, txData.length - 4), (address, uint256, string));
         require(
             _tokenId == tokenId,
             "MintableERC721Predicate._processRawMintWithTokenURI: TokenIds in exit and mint tx do not match"

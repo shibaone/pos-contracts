@@ -9,11 +9,7 @@ contract ChildERC721Proxified is ChildERC721, Initializable {
 
     constructor() public ChildERC721(address(0x1), address(0x1), "", "") {}
 
-    function initialize(
-        address _token,
-        string calldata _name,
-        string calldata _symbol
-    ) external initializer {
+    function initialize(address _token, string calldata _name, string calldata _symbol) external initializer {
         require(_token != address(0x0));
         token = _token;
         name = _name;

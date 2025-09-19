@@ -6,6 +6,7 @@ import {Registry} from "../../common/Registry.sol";
 contract ValidatorShareProxy is UpgradableProxy {
     constructor(address _registry) public UpgradableProxy(_registry) {}
 
+    // @note ValidatorShareProxy gets implementation from Registry, NOT storage
     function loadImplementation() internal view returns (address) {
         return Registry(super.loadImplementation()).getValidatorShareAddress();
     }
