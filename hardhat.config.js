@@ -1,4 +1,6 @@
 require("@nomicfoundation/hardhat-toolbox");
+require("@nomicfoundation/hardhat-ethers");
+require("@openzeppelin/hardhat-upgrades");
 require("dotenv").config();
 
 module.exports = {
@@ -10,18 +12,18 @@ module.exports = {
       allowUnlimitedContractSize: true,
       forking: {
         url: "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7",
-        blockNumber: 23388954
+        blockNumber: 23388954,
       },
-      chainId: 1
+      chainId: 1,
     },
     mychain: {
-      url: 'http://127.0.0.1:8545/',
+      url: "http://127.0.0.1:8545/",
       accounts: [process.env.PRIVATE_KEY],
       gas: "auto",
       gasPrice: "auto",
     },
     sepolia: {
-      url: 'https://ethereum-sepolia-rpc.publicnode.com',
+      url: "https://ethereum-sepolia-rpc.publicnode.com",
       accounts: [process.env.PRIVATE_KEY],
       gas: "auto",
       gasPrice: "auto",
@@ -37,13 +39,13 @@ module.exports = {
       accounts: [process.env.PRIVATE_KEY],
       gas: "auto",
       gasPrice: "auto",
-    }
+    },
   },
   etherscan: {
     apiKey: {
       sepolia: `${process.env.ETHERSCAN_API_KEY}`,
       mainnet: `${process.env.ETHERSCAN_API_KEY}`,
-      holesky: `${process.env.ETHERSCAN_API_KEY}`
+      holesky: `${process.env.ETHERSCAN_API_KEY}`,
     },
     customChains: [
       {
@@ -51,10 +53,10 @@ module.exports = {
         chainId: 17000,
         urls: {
           apiURL: "https://api-holesky.etherscan.io/api",
-          browserURL: "https://holesky.etherscan.io/"
-        }
+          browserURL: "https://holesky.etherscan.io/",
+        },
       },
-    ]
+    ],
   },
   solidity: {
     version: "0.5.17",
@@ -63,6 +65,11 @@ module.exports = {
         enabled: true,
         runs: 200,
       },
+      outputSelection: {
+        "*": {
+          "*": ["storageLayout"],
+        },
+      },
     },
   },
-}
+};

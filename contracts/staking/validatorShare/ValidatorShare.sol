@@ -9,6 +9,7 @@ import {OwnableLockable} from "../../common/mixin/OwnableLockable.sol";
 import {IStakeManager} from "../stakeManager/IStakeManager.sol";
 import {IValidatorShare} from "./IValidatorShare.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
+import {IOwnable} from "../../common/interfaces/IOwnable.sol";
 
 contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, Initializable {
     struct DelegatorUnbond {
@@ -49,8 +50,16 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     EventsHub public eventsHub;
 
     // Admin event for consumed unbond records (legacy)
-    event AdminConsumedUnbond( // 0 for legacy
-    uint256 indexed validatorId, address indexed user, uint256 unbondNonce, uint256 amount, uint256 shares, uint256 timestamp, address operator);
+    // 0 for legacy
+    event AdminConsumedUnbond(
+        uint256 indexed validatorId,
+        address indexed user,
+        uint256 unbondNonce,
+        uint256 amount,
+        uint256 shares,
+        uint256 timestamp,
+        address operator
+    );
 
     // onlyOwner will prevent this contract from initializing, since it's owner is going to be 0x0 address
     function initialize(uint256 _validatorId, address _stakingLogger, address _stakeManager) external initializer {
@@ -128,7 +137,9 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
             if (liquidReward > amountRestaked) {
                 // return change to the user
-                require(stakeManager.transferFunds(validatorId, liquidReward - amountRestaked, user), "Insufficent rewards");
+                require(
+                    stakeManager.transferFunds(validatorId, liquidReward - amountRestaked, user), "Insufficent rewards"
+                );
                 stakingLogger.logDelegatorClaimRewards(validatorId, user, liquidReward - amountRestaked);
             }
 
@@ -187,7 +198,12 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         stakingLogger.logDelegatorUnstaked(validatorId, msg.sender, amount);
     }
 
-    function slash(uint256 validatorStake, uint256 delegatedAmount, uint256 totalAmountToSlash) external onlyOwner returns (uint256) {
+    function slash(uint256 validatorStake, uint256 delegatedAmount, uint256 totalAmountToSlash)
+        external
+        onlyOwner
+        returns (uint256)
+    {
+        // Slashing disabled in this implementation
         revert("Slashing disabled");
     }
 
@@ -199,8 +215,68 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         revert("No draining.");
     }
 
-    function updateImplementation(address newImplementation) external onlyOwner {
-        revert("Implementation updates not supported");
+    function updateAndCall(address newImplementation, bytes calldata data) external {
+        revert("Not implemented");
+    }
+
+    /**
+     * @dev Admin function to consume legacy unbond records for a specific user
+     * This function allows the contract owner (StakeManager) to reset unbond state
+     * for users affected by the hack, enabling them to withdraw their funds
+     */
+    function adminConsumeLegacyUnbond(address user) external returns (uint256) {
+        require(IOwnable(address(stakeManager)).owner() == msg.sender, "Only StakeManager owner can call this function");
+
+        DelegatorUnbond memory legacy = unbonds[user];
+        uint256 totalShares = 0;
+        uint256 totalAmount = 0;
+
+        // If legacy unbond exists and matured, consume it first
+        if (legacy.shares > 0 && legacy.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch()) {
+            uint256 amt = withdrawExchangeRate().mul(legacy.shares).div(_getRatePrecision());
+
+            // update accounting
+            withdrawShares = withdrawShares.sub(legacy.shares);
+            withdrawPool = withdrawPool.sub(amt);
+
+            totalShares = totalShares.add(legacy.shares);
+            totalAmount = totalAmount.add(amt);
+
+            // remove legacy entry
+            delete unbonds[user];
+        }
+
+        // Process new-style unbonds (per-nonce). Delete matured ones.
+        uint256 nonces = unbondNonces[user];
+        uint256 processed = 0;
+        if (nonces > 0) {
+            for (uint256 i = 1; i <= nonces; i++) {
+                DelegatorUnbond memory nb = unbonds_new[user][i];
+                if (nb.shares > 0 && nb.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch()) {
+                    uint256 amt = withdrawExchangeRate().mul(nb.shares).div(_getRatePrecision());
+
+                    // update accounting
+                    withdrawShares = withdrawShares.sub(nb.shares);
+                    withdrawPool = withdrawPool.sub(amt);
+
+                    totalShares = totalShares.add(nb.shares);
+                    totalAmount = totalAmount.add(amt);
+
+                    delete unbonds_new[user][i];
+                    processed++;
+                }
+            }
+
+            // if we removed every nonce entry, reset nonce counter to zero
+            if (processed == nonces) {
+                unbondNonces[user] = 0;
+            }
+        }
+
+        require(totalShares > 0, "no unbond available");
+
+        emit AdminConsumedUnbond(validatorId, user, 0, totalAmount, totalShares, now, msg.sender);
+        return totalAmount;
     }
 
     /**
@@ -211,7 +287,8 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
         uint256 unbondNonce = unbondNonces[msg.sender].add(1);
 
-        DelegatorUnbond memory unbond = DelegatorUnbond({shares: _withdrawPoolShare, withdrawEpoch: stakeManager.epoch()});
+        DelegatorUnbond memory unbond =
+            DelegatorUnbond({shares: _withdrawPoolShare, withdrawEpoch: stakeManager.epoch()});
         unbonds_new[msg.sender][unbondNonce] = unbond;
         unbondNonces[msg.sender] = unbondNonce;
 
@@ -224,31 +301,6 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         uint256 amount = _unstakeClaimTokens(unbond);
         delete unbonds_new[msg.sender][unbondNonce];
         _getOrCacheEventsHub().logDelegatorUnstakedWithId(validatorId, msg.sender, amount, unbondNonce);
-    }
-
-    /**
-     * Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
-     *     Only callable by owner (StakeManager). This consumes the stored legacy unbond entry,
-     *     subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
-     *     computed amount. This function DOES NOT transfer tokens.
-     */
-    function adminConsumeLegacyUnbond(address user) external onlyOwner returns (uint256) {
-        DelegatorUnbond memory unbond = unbonds[user];
-        uint256 shares = unbond.shares;
-        require(shares > 0, "no legacy unbond");
-        require(unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch(), "Incomplete withdrawal period");
-
-        uint256 _amount = withdrawExchangeRate().mul(shares).div(_getRatePrecision());
-
-        // update accounting
-        withdrawShares = withdrawShares.sub(shares);
-        withdrawPool = withdrawPool.sub(_amount);
-
-        // delete the stored unbond record so it cannot be re-used
-        delete unbonds[user];
-
-        emit AdminConsumedUnbond(validatorId, user, 0, _amount, shares, now, msg.sender);
-        return _amount;
     }
 
     /**
@@ -288,7 +340,10 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
 
     function _unstakeClaimTokens(DelegatorUnbond memory unbond) private returns (uint256) {
         uint256 shares = unbond.shares;
-        require(unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch() && shares > 0, "Incomplete withdrawal period");
+        require(
+            unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch() && shares > 0,
+            "Incomplete withdrawal period"
+        );
 
         uint256 _amount = withdrawExchangeRate().mul(shares).div(_getRatePrecision());
         withdrawShares = withdrawShares.sub(shares);
@@ -337,7 +392,8 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     function _withdrawReward(address user) private returns (uint256) {
-        uint256 _rewardPerShare = _calculateRewardPerShareWithRewards(stakeManager.withdrawDelegatorsReward(validatorId));
+        uint256 _rewardPerShare =
+            _calculateRewardPerShareWithRewards(stakeManager.withdrawDelegatorsReward(validatorId));
         uint256 liquidRewards = _calculateReward(user, _rewardPerShare);
 
         rewardPerShare = _rewardPerShare;
@@ -354,7 +410,11 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         return liquidRewards;
     }
 
-    function _buyShares(uint256 _amount, uint256 _minSharesToMint, address user) private onlyWhenUnlocked returns (uint256) {
+    function _buyShares(uint256 _amount, uint256 _minSharesToMint, address user)
+        private
+        onlyWhenUnlocked
+        returns (uint256)
+    {
         require(delegation, "Delegation is disabled");
 
         uint256 rate = exchangeRate();

@@ -1,9 +1,10 @@
 {
   "dependencies": {
     "dotenv": "^16.4.5",
+    "eth-sig-util": "^3.0.1",
     "ethereumjs-util": "^7.1.5",
     "hardhat": "^2.22.11",
-    "openzeppelin-solidity": "^2.2.0",
+    "openzeppelin-solidity": "2.2.0",
     "pre-commit": "^1.2.2",
     "solidity-rlp": "^2.0.0"
   },
@@ -11,6 +12,9 @@
     "template:process": "node scripts/process-templates.js"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+    "@nomicfoundation/hardhat-ethers": "^3.1.0",
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "@openzeppelin/hardhat-upgrades": "^3.9.1",
+    "ethers": "^6.15.0"
   }
 }
