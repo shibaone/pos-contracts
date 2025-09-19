@@ -1044,31 +1044,6 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
     }
 
     /**
-     * @dev Governance wrapper: instruct ValidatorShare to wipe a user's legacy unbond.
-     */
-    function adminConsumeValidatorLegacyUnbond(uint256 validatorId, address user) external onlyOwner {
-        address validatorShareAddr = validators[validatorId].contractAddress;
-        require(validatorShareAddr != address(0), "no validator share");
-
-        IValidatorShare(validatorShareAddr).adminConsumeLegacyUnbond(user);
-
-        emit ForceConsumeLegacyUnbond(validatorId, user, validatorShareAddr, now, msg.sender);
-    }
-
-    /**
-     * @dev Governance wrapper: upgrade ValidatorShare implementation.
-     */
-    function updateValidatorShareImplementation(uint256 validatorId, address newImplementation) external onlyOwner {
-        require(newImplementation != address(0), "invalid implementation");
-        address validatorShareAddr = validators[validatorId].contractAddress;
-        require(validatorShareAddr != address(0), "no validator share");
-
-        IValidatorShareProxy(validatorShareAddr).updateImplementation(newImplementation);
-
-        emit ValidatorShareImplementationUpdated(validatorId, validatorShareAddr, newImplementation, now, msg.sender);
-    }
-
-    /**
      * @dev Governance function to update blacklist status for a user
      *     @param user Address to update blacklist status for
      *     @param depositBlocked Whether to block deposits for this user

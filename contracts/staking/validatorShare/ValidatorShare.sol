@@ -10,6 +10,10 @@ import {IStakeManager} from "../stakeManager/IStakeManager.sol";
 import {IValidatorShare} from "./IValidatorShare.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 
+interface IOwnable {
+    function owner() external view returns (address);
+}
+
 contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, Initializable {
     struct DelegatorUnbond {
         uint256 shares;
@@ -228,24 +232,62 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
      *     subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
      *     computed amount. This function DOES NOT transfer tokens.
      */
-    function adminConsumeLegacyUnbond(address user) external onlyOwner returns (uint256) {
-        DelegatorUnbond memory unbond = unbonds[user];
-        uint256 shares = unbond.shares;
-        require(shares > 0, "no legacy unbond");
-        require(unbond.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch(), "Incomplete withdrawal period");
+    function adminConsumeLegacyUnbond(address user) external returns (uint256) {
+        // enforce caller is the owner of StakeManager (not ValidatorShare owner)
+        require(IOwnable(address(stakeManager)).owner() == msg.sender, "Only StakeManager owner can call this function");
 
-        uint256 _amount = withdrawExchangeRate().mul(shares).div(_getRatePrecision());
+        DelegatorUnbond memory legacy = unbonds[user];
+        uint256 totalShares = 0;
+        uint256 totalAmount = 0;
 
-        // update accounting
-        withdrawShares = withdrawShares.sub(shares);
-        withdrawPool = withdrawPool.sub(_amount);
+        // If legacy unbond exists and matured, consume it first
+        if (legacy.shares > 0 && legacy.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch()) {
+            uint256 amt = withdrawExchangeRate().mul(legacy.shares).div(_getRatePrecision());
 
-        // delete the stored unbond record so it cannot be re-used
-        delete unbonds[user];
+            // update accounting
+            withdrawShares = withdrawShares.sub(legacy.shares);
+            withdrawPool = withdrawPool.sub(amt);
 
-        emit AdminConsumedUnbond(validatorId, user, 0, _amount, shares, now, msg.sender);
-        return _amount;
+            totalShares = totalShares.add(legacy.shares);
+            totalAmount = totalAmount.add(amt);
+
+            // remove legacy entry
+            delete unbonds[user];
+        }
+
+        // Process new-style unbonds (per-nonce). Delete matured ones.
+        uint256 nonces = unbondNonces[user];
+        uint256 processed = 0;
+        if (nonces > 0) {
+            for (uint256 i = 1; i <= nonces; i++) {
+                DelegatorUnbond memory nb = unbonds_new[user][i];
+                if (nb.shares > 0 && nb.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch()) {
+                    uint256 amt = withdrawExchangeRate().mul(nb.shares).div(_getRatePrecision());
+
+                    // update accounting
+                    withdrawShares = withdrawShares.sub(nb.shares);
+                    withdrawPool = withdrawPool.sub(amt);
+
+                    totalShares = totalShares.add(nb.shares);
+                    totalAmount = totalAmount.add(amt);
+
+                    delete unbonds_new[user][i];
+                    processed++;
+                }
+            }
+
+            // if we removed every nonce entry, reset nonce counter to zero
+            if (processed == nonces) {
+                unbondNonces[user] = 0;
+            }
+        }
+
+        require(totalShares > 0, "no unbond available");
+
+        emit AdminConsumedUnbond(validatorId, user, 0, totalAmount, totalShares, now, msg.sender);
+        return totalAmount;
     }
+
 
     /**
      * Private Methods
