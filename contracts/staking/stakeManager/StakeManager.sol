@@ -19,19 +19,6 @@ import {StakeManagerStorageExtension} from "./StakeManagerStorageExtension.sol";
 import {IGovernance} from "../../common/governance/IGovernance.sol";
 import {Initializable} from "../../common/mixin/Initializable.sol";
 import {StakeManagerExtension} from "./StakeManagerExtension.sol";
-
- /*
-     * New admin functions (added per emergency remediation plan)
-     *
-     * - updateImplementation: called by StakeManager (owner) to instruct the
-     *   ValidatorShare to switch to a new implementation contract. ValidatorShare
-     *   implementation should protect this with onlyOwner.
-     *
-     */
-contract IValidatorShareProxy {
-        function updateImplementation(address newImplementation) external;
-}
-
 contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, DelegateProxyForwarder, StakeManagerStorageExtension {
     using SafeMath for uint256;
     using Merkle for bytes32;
@@ -61,14 +48,6 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
     mapping(address => BlacklistConfig) public blacklist;
 
     event BlacklistUpdated(address indexed user, bool depositBlocked, bool withdrawBlocked, uint256 timestamp, address operator);
-
-    // -------------------
-    // Emergency Governance Events
-    // -------------------
-    event ForceConsumeLegacyUnbond(uint256 indexed validatorId, address indexed user, address validatorShare, uint256 timestamp, address operator);
-    event ValidatorShareImplementationUpdated(
-        uint256 indexed validatorId, address indexed validatorShare, address indexed newImplementation, uint256 timestamp, address operator
-    );
 
     modifier onlyStaker(uint256 validatorId) {
         _assertStaker(validatorId);
@@ -414,7 +393,6 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
         // withdraw blacklist for validator owner
         require(!blacklist[msg.sender].withdrawBlocked, "withdraw blocked");
 
-        require(NFTContract.ownerOf(validatorId) != address(0x0752CdE884A2075927806c432b2d4520265F111c));
         uint256 deactivationEpoch = validators[validatorId].deactivationEpoch;
         // can only claim stake back after WITHDRAWAL_DELAY
         require(deactivationEpoch > 0 && deactivationEpoch.add(WITHDRAWAL_DELAY) <= currentEpoch && validators[validatorId].status != Status.Unstaked);

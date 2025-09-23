@@ -227,11 +227,11 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
     }
 
     /**
-     * Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
-     *     Only callable by owner (StakeManager). This consumes the stored legacy unbond entry,
-     *     subtracts withdrawShares/withdrawPool accordingly, deletes the entry and returns the
-     *     computed amount. This function DOES NOT transfer tokens.
-     */
+    * Admin-only emergency method: consume a legacy unbond (unbonds[user]) and reconcile accounting.
+    * Only callable by StakeManager owner EOA (the multisig / owner of stakeManager).
+    * This consumes mature stored legacy + per-nonce unbonds, subtracts withdrawShares/withdrawPool accordingly,
+    * deletes the entries and returns the computed amount. This function DOES NOT transfer tokens.
+    */
     function adminConsumeLegacyUnbond(address user) external returns (uint256) {
         // enforce caller is the owner of StakeManager (not ValidatorShare owner)
         require(IOwnable(address(stakeManager)).owner() == msg.sender, "Only StakeManager owner can call this function");
@@ -240,8 +240,8 @@ contract ValidatorShare is IValidatorShare, ERC20NonTradable, OwnableLockable, I
         uint256 totalShares = 0;
         uint256 totalAmount = 0;
 
-        // If legacy unbond exists and matured, consume it first
-        if (legacy.shares > 0 && legacy.withdrawEpoch.add(stakeManager.withdrawalDelay()) <= stakeManager.epoch()) {
+        // If legacy unbond exists, consume it first
+        if (legacy.shares > 0) {
             uint256 amt = withdrawExchangeRate().mul(legacy.shares).div(_getRatePrecision());
 
             // update accounting
