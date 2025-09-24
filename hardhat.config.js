@@ -16,7 +16,7 @@ module.exports = {
       gasPrice: "auto",
     },
     mainnet: {
-      url: `https://eth-mainnet.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`,
+      url: `https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7`,
       accounts: [process.env.PRIVATE_KEY],
       gas: "auto",
       gasPrice: "auto",
