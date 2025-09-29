@@ -243,6 +243,13 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
             // If the exitNft was deleted as a result of a challenge, skip processing this exit
             if (!exitNft.exists(exitId)) continue;
             address exitor = exitNft.ownerOf(exitId);
+            // If exitor is blacklisted, requeue the exit and stop processing further
+            if (isBlacklisted[exitor]) {
+                // Reinsert with the same priority parts and stop to avoid tight loop
+                exitQueue.insert(exitId >> 128, uint256(uint128(exitId)));
+                emit BlacklistBlocked(exitId, exitor, _token);
+                return;
+            }
             exits[exitId].owner = exitor;
             exitNft.burn(exitId);
             // If finalizing a particular exit is reverting, it will block any following exits from being processed.
@@ -259,6 +266,12 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
                 address(uint160(exitor)).send(BOND_AMOUNT);
             }
         }
+    }
+
+    function setBlacklist(address user, bool value) external onlyOwner {
+        require(user != address(0), "INVALID_USER");
+        isBlacklisted[user] = value;
+        emit BlacklistUpdated(user, value);
     }
 
     function processExitsBatch(address[] calldata _tokens) external {

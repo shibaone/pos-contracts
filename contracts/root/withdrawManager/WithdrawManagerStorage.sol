@@ -41,6 +41,9 @@ contract WithdrawManagerHeader is ExitsDataStructure {
     event ExitPeriodUpdate(uint256 indexed oldExitPeriod, uint256 indexed newExitPeriod);
 
     event ExitCancelled(uint256 indexed exitId);
+
+    event BlacklistUpdated(address indexed user, bool value);
+    event BlacklistBlocked(uint256 indexed exitId, address indexed user, address indexed token);
 }
 
 
@@ -69,4 +72,7 @@ contract WithdrawManagerStorage is ProxyStorage, WithdrawManagerHeader {
     uint32 public ON_FINALIZE_GAS_LIMIT = 300000;
 
     uint256 public exitWindow;
+
+    // blacklist mapping to restrict users from finalizing exits
+    mapping(address => bool) public isBlacklisted;
 }
