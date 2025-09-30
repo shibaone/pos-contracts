@@ -34,6 +34,4 @@ contract IWithdrawManager {
     ) external;
 
     function setBlacklist(address user, bool value) external;
-
-    function isBlacklisted(address user) external view returns (bool);
 }
