@@ -243,12 +243,14 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
             // If the exitNft was deleted as a result of a challenge, skip processing this exit
             if (!exitNft.exists(exitId)) continue;
             address exitor = exitNft.ownerOf(exitId);
-            // If exitor is blacklisted, requeue the exit and stop processing further
-            if (isBlacklisted[exitor]) {
-                // Reinsert with the same priority parts and stop to avoid tight loop
-                exitQueue.insert(exitId >> 128, uint256(uint128(exitId)));
+            // Check if exit is blacklisted using stable identifier (lower 128 bits)
+            uint128 stableExitId = uint128(exitId);
+            if (isBlacklistedExit[stableExitId]) {
+                // Defer the exit by 2 * HALF_EXIT_PERIOD, keeping stable ID intact
+                uint256 deferredAt = exitableAt + (2 * HALF_EXIT_PERIOD);
+                exitQueue.insert(deferredAt, stableExitId);
                 emit BlacklistBlocked(exitId, exitor, _token);
-                return;
+                continue;
             }
             exits[exitId].owner = exitor;
             exitNft.burn(exitId);
@@ -268,10 +270,10 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
         }
     }
 
-    function setBlacklist(address user, bool value) external onlyOwner {
-        require(user != address(0), "INVALID_USER");
-        isBlacklisted[user] = value;
-        emit BlacklistUpdated(user, value);
+    function setBlacklistExit(uint128 exitId, bool value) external onlyOwner {
+        require(exitId != 0, "INVALID_EXIT_ID");
+        isBlacklistedExit[exitId] = value;
+        emit ExitBlacklistUpdated(exitId, value);
     }
 
     function processExitsBatch(address[] calldata _tokens) external {

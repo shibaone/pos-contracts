@@ -44,6 +44,7 @@ contract WithdrawManagerHeader is ExitsDataStructure {
 
     event BlacklistUpdated(address indexed user, bool value);
     event BlacklistBlocked(uint256 indexed exitId, address indexed user, address indexed token);
+    event ExitBlacklistUpdated(uint128 indexed exitId, bool value);
 }
 
 
@@ -73,6 +74,7 @@ contract WithdrawManagerStorage is ProxyStorage, WithdrawManagerHeader {
 
     uint256 public exitWindow;
 
-    // blacklist mapping to restrict users from finalizing exits
-    mapping(address => bool) public isBlacklisted;
+    // blacklist mapping to restrict exits from being finalized
+    // Uses lower 128 bits of exitId as the stable identifier
+    mapping(uint128 => bool) public isBlacklistedExit;
 }
