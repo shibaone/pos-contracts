@@ -8,6 +8,11 @@ module.exports = {
       gas: "auto",
       gasPrice: "auto",
       allowUnlimitedContractSize: true,
+      forking: {
+        url: process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7",
+        blockNumber: process.env.FORK_BLOCK_NUMBER ? parseInt(process.env.FORK_BLOCK_NUMBER) : undefined,
+        enabled: process.env.FORK_MAINNET === "true"
+      },
     },
     sepolia: {
       url: 'https://ethereum-sepolia-rpc.publicnode.com',
@@ -53,5 +58,8 @@ module.exports = {
         runs: 200,
       },
     },
+  },
+  mocha: {
+    timeout: 300000 // 5 minutes for fork tests
   },
 }

@@ -58,3 +58,32 @@ npm run truffle:migrate
 ```
 npm test
 ```
+
+### Run Blacklist Feature Tests
+
+The WithdrawManager blacklist feature includes comprehensive test suites:
+
+#### Fork Tests (Mainnet)
+Test against actual deployed mainnet contracts:
+```bash
+# Set environment variable
+export FORK_MAINNET=true
+
+# Run fork tests
+npm run test:fork
+```
+
+#### Fork Fuzz Tests (Mainnet)
+Run 550+ fuzz iterations against mainnet contracts:
+```bash
+# Set environment variable
+export FORK_MAINNET=true
+
+# Run fork fuzz tests
+npm run test:fuzz:fork
+```
+
+**Note:** Fork tests require an RPC endpoint. For better performance, set `MAINNET_RPC_URL` in your `.env` file:
+```bash
+MAINNET_RPC_URL=https://mainnet.infura.io/v3/YOUR_KEY
+```

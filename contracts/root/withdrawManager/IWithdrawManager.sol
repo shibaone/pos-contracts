@@ -33,5 +33,5 @@ contract IWithdrawManager {
         address adjudicatorPredicate
     ) external;
 
-    function setBlacklist(address user, bool value) external;
+    function setBlacklistExit(uint128 exitId, bool value) external;
 }

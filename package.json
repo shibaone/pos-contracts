@@ -8,9 +8,14 @@
     "solidity-rlp": "^2.0.0"
   },
   "scripts": {
-    "template:process": "node scripts/process-templates.js"
+    "template:process": "node scripts/process-templates.js",
+    "test": "hardhat test",
+    "test:fork": "npx hardhat test test/withdrawManagerBlacklistFork.test.js",
+    "test:fuzz:fork": "npx hardhat test test/withdrawManagerBlacklistForkFuzz.test.js"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0"
+    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
+    "chai": "^4.5.0",
+    "ethers": "^6.15.0"
   }
 }
