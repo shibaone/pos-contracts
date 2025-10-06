@@ -77,4 +77,9 @@ contract WithdrawManagerStorage is ProxyStorage, WithdrawManagerHeader {
     // blacklist mapping to restrict exits from being finalized
     // Uses lower 128 bits of exitId as the stable identifier
     mapping(uint128 => bool) public isBlacklistedExit;
+
+    // Mapping to store original full exitId for blacklisted exits
+    // This ensures NFT existence checks pass even after deferral
+    // Key: stableExitId (lower 128 bits), Value: original full exitId (with original timestamp)
+    mapping(uint128 => uint256) public blacklistedExitOriginalId;
 }

@@ -233,35 +233,55 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
 
         while (exitQueue.currentSize() > 0 && gasleft() > ON_FINALIZE_GAS_LIMIT) {
             (exitableAt, exitId) = exitQueue.getMin();
-            exitId = (exitableAt << 128) | exitId;
-            PlasmaExit memory currentExit = exits[exitId];
+            uint128 stableExitId = uint128(exitId);
+
+            // Check if this is a deferred blacklisted exit
+            // If so, use the original exitId for NFT checks to ensure they pass
+            uint256 originalExitId = blacklistedExitOriginalId[stableExitId];
+            uint256 fullExitId;
+
+            if (originalExitId != 0) {
+                // This is a deferred blacklisted exit - use the stored original exitId
+                fullExitId = originalExitId;
+            } else {
+                // Normal exit or first-time blacklisted exit - reconstruct from timestamp
+                fullExitId = (exitableAt << 128) | stableExitId;
+            }
+
+            PlasmaExit memory currentExit = exits[fullExitId];
 
             // Stop processing exits if the exit that is next is queue is still in its challenge period
             if (exitableAt > block.timestamp) return;
 
             exitQueue.delMin();
             // If the exitNft was deleted as a result of a challenge, skip processing this exit
-            if (!exitNft.exists(exitId)) continue;
-            address exitor = exitNft.ownerOf(exitId);
+            // Use fullExitId to ensure NFT check passes for deferred blacklisted exits
+            if (!exitNft.exists(fullExitId)) continue;
+            address exitor = exitNft.ownerOf(fullExitId);
+
             // Check if exit is blacklisted using stable identifier (lower 128 bits)
-            uint128 stableExitId = uint128(exitId);
             if (isBlacklistedExit[stableExitId]) {
-                // Defer the exit by 2 * HALF_EXIT_PERIOD, keeping stable ID intact
+                // Store original exitId on first blacklist to preserve NFT reference
+                if (blacklistedExitOriginalId[stableExitId] == 0) {
+                    blacklistedExitOriginalId[stableExitId] = fullExitId;
+                }
+                // Defer the exit by 2 * HALF_EXIT_PERIOD to push it to back of queue
                 uint256 deferredAt = exitableAt + (2 * HALF_EXIT_PERIOD);
                 exitQueue.insert(deferredAt, stableExitId);
-                emit BlacklistBlocked(exitId, exitor, _token);
+                emit BlacklistBlocked(fullExitId, exitor, _token);
                 continue;
             }
-            exits[exitId].owner = exitor;
-            exitNft.burn(exitId);
+
+            exits[fullExitId].owner = exitor;
+            exitNft.burn(fullExitId);
             // If finalizing a particular exit is reverting, it will block any following exits from being processed.
             // Hence, call predicate.onFinalizeExit in a revertless manner.
             // (bool success, bytes memory result) =
             currentExit.predicate.call(
-                abi.encodeWithSignature("onFinalizeExit(bytes)", encodeExitForProcessExit(exitId))
+                abi.encodeWithSignature("onFinalizeExit(bytes)", encodeExitForProcessExit(fullExitId))
             );
 
-            emit Withdraw(exitId, exitor, _token, currentExit.receiptAmountOrNFTId);
+            emit Withdraw(fullExitId, exitor, _token, currentExit.receiptAmountOrNFTId);
 
             if (!currentExit.isRegularExit) {
                 // return the bond amount if this was a MoreVp style exit
