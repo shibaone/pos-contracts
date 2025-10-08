@@ -51,11 +51,12 @@ exitId = (exitableAt << 128) | exitId;
 
 When an exit is deferred, only the timestamp changes:
 ```solidity
-uint256 deferredAt = exitableAt + (2 * HALF_EXIT_PERIOD);
+uint256 deferredAt = block.timestamp + (2 * HALF_EXIT_PERIOD);
 exitQueue.insert(deferredAt, stableExitId);
 //               ^^^^^^^^^^   ^^^^^^^^^^^^
 //               new time     SAME stable ID
 ```
+Note: Deferral uses `block.timestamp` (not `exitableAt`) to ensure the exit is always pushed into the future.
 
 ### Implementation Details
 
@@ -101,8 +102,8 @@ if (isBlacklistedExit[stableExitId]) {
     if (blacklistedExitOriginalId[stableExitId] == 0) {
         blacklistedExitOriginalId[stableExitId] = fullExitId;
     }
-    // Defer the exit by 2 * HALF_EXIT_PERIOD to push it to back of queue
-    uint256 deferredAt = exitableAt + (2 * HALF_EXIT_PERIOD);
+    // Defer the exit by 2 * HALF_EXIT_PERIOD from current time to push it to back of queue
+    uint256 deferredAt = block.timestamp + (2 * HALF_EXIT_PERIOD);
     exitQueue.insert(deferredAt, stableExitId);
     emit BlacklistBlocked(fullExitId, exitor, _token);
     continue;
@@ -118,15 +119,15 @@ function setBlacklistExit(uint256 exitId, bool value) external onlyOwner {
     require(exitId != 0, "INVALID_EXIT_ID");
     uint128 stableExitId = uint128(exitId);
     isBlacklistedExit[stableExitId] = value;
-    emit ExitBlacklistUpdated(stableExitId, value);
+    emit ExitBlacklistUpdated(exitId, stableExitId, value);
 }
 ```
 
-Note: The function accepts the full exitId (uint256) and automatically extracts the stable portion (lower 128 bits) for blacklisting.
+Note: The function accepts the full exitId (uint256), extracts the stable portion (lower 128 bits) for storage, and emits both the full exitId and stable exitId in the event for maximum auditability.
 
 #### 4. Events (WithdrawManagerStorage.sol:47)
 ```solidity
-event ExitBlacklistUpdated(uint128 indexed exitId, bool value);
+event ExitBlacklistUpdated(uint256 indexed fullExitId, uint128 indexed stableExitId, bool value);
 event BlacklistBlocked(uint256 indexed exitId, address indexed user, address indexed token);
 ```
 
@@ -218,13 +219,13 @@ address exitor = exitNft.ownerOf(fullExitId);
 // Owner blacklists this exit (can pass full exitId, it extracts lower 128 bits)
 setBlacklistExit(fullExitId, true); // Internally uses uint128(fullExitId) = 999
 
-// During processExits:
+// During processExits (assume block.timestamp = 1000000):
 if (isBlacklistedExit[999]) { // TRUE
     // Store original exitId on first blacklist
     if (blacklistedExitOriginalId[999] == 0) {
         blacklistedExitOriginalId[999] = fullExitId; // Store original!
     }
-    uint256 deferredAt = 1000000 + 604800; // = 1604800
+    uint256 deferredAt = block.timestamp + 604800; // = 1604800
     exitQueue.insert(1604800, 999); // Re-insert with new time
     continue;
 }
@@ -244,10 +245,10 @@ uint256 fullExitId = originalExitId; // Use ORIGINAL exitId! ✅
 if (!exitNft.exists(fullExitId)) continue; // PASSES ✅ (NFT has original ID)
 address exitor = exitNft.ownerOf(fullExitId); // PASSES ✅
 
-// During processExits:
+// During processExits (assume block.timestamp = 1604800):
 if (isBlacklistedExit[999]) { // STILL TRUE
     // blacklistedExitOriginalId[999] already set, skip
-    uint256 deferredAt = 1604800 + 604800; // = 2209600
+    uint256 deferredAt = block.timestamp + 604800; // = 2209600
     exitQueue.insert(2209600, 999); // Defer again
     continue;
 }

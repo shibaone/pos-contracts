@@ -265,8 +265,8 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
                 if (blacklistedExitOriginalId[stableExitId] == 0) {
                     blacklistedExitOriginalId[stableExitId] = fullExitId;
                 }
-                // Defer the exit by 2 * HALF_EXIT_PERIOD to push it to back of queue
-                uint256 deferredAt = exitableAt + (2 * HALF_EXIT_PERIOD);
+                // Defer the exit by 2 * HALF_EXIT_PERIOD from current time to push it to back of queue
+                uint256 deferredAt = block.timestamp + (2 * HALF_EXIT_PERIOD);
                 exitQueue.insert(deferredAt, stableExitId);
                 emit BlacklistBlocked(fullExitId, exitor, _token);
                 continue;
@@ -294,7 +294,7 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
         require(exitId != 0, "INVALID_EXIT_ID");
         uint128 stableExitId = uint128(exitId);
         isBlacklistedExit[stableExitId] = value;
-        emit ExitBlacklistUpdated(stableExitId, value);
+        emit ExitBlacklistUpdated(exitId, stableExitId, value);
     }
 
     function processExitsBatch(address[] calldata _tokens) external {
