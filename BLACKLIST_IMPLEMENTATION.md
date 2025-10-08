@@ -112,14 +112,17 @@ exits[fullExitId].owner = exitor;
 exitNft.burn(fullExitId);
 ```
 
-#### 3. Admin Function (WithdrawManager.sol:273-277)
+#### 3. Admin Function (WithdrawManager.sol:293-298)
 ```solidity
-function setBlacklistExit(uint128 exitId, bool value) external onlyOwner {
+function setBlacklistExit(uint256 exitId, bool value) external onlyOwner {
     require(exitId != 0, "INVALID_EXIT_ID");
-    isBlacklistedExit[exitId] = value;
-    emit ExitBlacklistUpdated(exitId, value);
+    uint128 stableExitId = uint128(exitId);
+    isBlacklistedExit[stableExitId] = value;
+    emit ExitBlacklistUpdated(stableExitId, value);
 }
 ```
+
+Note: The function accepts the full exitId (uint256) and automatically extracts the stable portion (lower 128 bits) for blacklisting.
 
 #### 4. Events (WithdrawManagerStorage.sol:47)
 ```solidity
@@ -212,8 +215,8 @@ uint256 fullExitId = (1000000 << 128) | 999; // Reconstruct from timestamp
 if (!exitNft.exists(fullExitId)) continue; // PASSES ✅
 address exitor = exitNft.ownerOf(fullExitId);
 
-// Owner blacklists this exit
-setBlacklistExit(999, true);
+// Owner blacklists this exit (can pass full exitId, it extracts lower 128 bits)
+setBlacklistExit(fullExitId, true); // Internally uses uint128(fullExitId) = 999
 
 // During processExits:
 if (isBlacklistedExit[999]) { // TRUE
@@ -252,7 +255,7 @@ if (isBlacklistedExit[999]) { // STILL TRUE
 
 ### After Owner Removes from Blacklist
 ```solidity
-setBlacklistExit(999, false);
+setBlacklistExit(fullExitId, false); // Internally extracts stable exitId = 999
 
 // Next time it reaches front of queue:
 (exitableAt, exitId) = exitQueue.getMin(); // (2209600, 999)
@@ -292,22 +295,24 @@ The fix adds a mapping to preserve the original exitId for NFT operations.
 
 ### To Blacklist an Exit
 ```solidity
-// Get the stable exitId (lower 128 bits)
-uint128 stableExitId = uint128(fullExitId);
-
-// Blacklist the exit
-withdrawManager.setBlacklistExit(stableExitId, true);
+// Simply pass the full exitId - the function automatically extracts the stable portion
+withdrawManager.setBlacklistExit(fullExitId, true);
 ```
 
 ### To Remove from Blacklist
 ```solidity
-withdrawManager.setBlacklistExit(stableExitId, false);
+// Pass the full exitId - the stable portion is extracted automatically
+withdrawManager.setBlacklistExit(fullExitId, false);
 ```
 
 ### To Check if an Exit is Blacklisted
 ```solidity
-uint128 stableExitId = uint128(fullExitId);
+// Extract the stable exitId to check blacklist status
+uint128 stableExitId = withdrawManager.getStableExitId(fullExitId);
 bool isBlacklisted = withdrawManager.isBlacklistedExit(stableExitId);
+
+// Or extract it directly
+bool isBlacklisted = withdrawManager.isBlacklistedExit(uint128(fullExitId));
 ```
 
 ## Gas Considerations

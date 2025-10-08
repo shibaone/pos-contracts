@@ -290,10 +290,11 @@ contract WithdrawManager is WithdrawManagerStorage, IWithdrawManager {
         }
     }
 
-    function setBlacklistExit(uint128 exitId, bool value) external onlyOwner {
+    function setBlacklistExit(uint256 exitId, bool value) external onlyOwner {
         require(exitId != 0, "INVALID_EXIT_ID");
-        isBlacklistedExit[exitId] = value;
-        emit ExitBlacklistUpdated(exitId, value);
+        uint128 stableExitId = uint128(exitId);
+        isBlacklistedExit[stableExitId] = value;
+        emit ExitBlacklistUpdated(stableExitId, value);
     }
 
     function processExitsBatch(address[] calldata _tokens) external {
