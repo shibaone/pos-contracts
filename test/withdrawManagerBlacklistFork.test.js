@@ -196,7 +196,7 @@ describe("WithdrawManager Blacklist - Mainnet Fork Tests", function () {
           .setBlacklistExit(stableExitId, true)
       )
         .to.emit(withdrawManager, "ExitBlacklistUpdated")
-        .withArgs(stableExitId, true);
+        .withArgs(stableExitId, stableExitId, true); // fullExitId, stableExitId, value
     });
 
     it("Should remove exit from blacklist", async function () {
