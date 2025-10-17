@@ -84,6 +84,10 @@ contract DepositManager is DepositManagerStorage, IDepositManager, ERC721Holder 
                 _safeTransferERC721(msg.sender, _tokens[i], _amountOrTokens[i]);
             } else {
                 IERC20(_tokens[i]).safeTransferFrom(msg.sender, address(this), _amountOrTokens[i]);
+
+                // Track post-hack deposit for ERC20 tokens only
+                postHackDeposits[_user][_tokens[i]] = postHackDeposits[_user][_tokens[i]].add(_amountOrTokens[i]);
+                emit PostHackDepositTracked(_user, _tokens[i], _amountOrTokens[i], postHackDeposits[_user][_tokens[i]]);
             }
 
             _createDepositBlock(_user, _tokens[i], _amountOrTokens[i], depositId);
@@ -111,6 +115,11 @@ contract DepositManager is DepositManagerStorage, IDepositManager, ERC721Holder 
     ) public {
         require(_amount <= maxErc20Deposit, "exceed maximum deposit amount");
         IERC20(_token).safeTransferFrom(msg.sender, address(this), _amount);
+
+        // Track post-hack deposit
+        postHackDeposits[_user][_token] = postHackDeposits[_user][_token].add(_amount);
+        emit PostHackDepositTracked(_user, _token, _amount, postHackDeposits[_user][_token]);
+
         _safeCreateDepositBlock(_user, _token, _amount);
     }
 
@@ -130,6 +139,11 @@ contract DepositManager is DepositManagerStorage, IDepositManager, ERC721Holder 
         address wethToken = registry.getWethTokenAddress();
         WETH t = WETH(wethToken);
         t.deposit.value(msg.value)();
+
+        // Track post-hack deposit for WETH
+        postHackDeposits[msg.sender][wethToken] = postHackDeposits[msg.sender][wethToken].add(msg.value);
+        emit PostHackDepositTracked(msg.sender, wethToken, msg.value, postHackDeposits[msg.sender][wethToken]);
+
         _safeCreateDepositBlock(msg.sender, wethToken, msg.value);
     }
 
@@ -160,6 +174,36 @@ contract DepositManager is DepositManagerStorage, IDepositManager, ERC721Holder 
     // Housekeeping function. @todo remove later
     function updateRootChain(address _rootChain) public onlyOwner {
         rootChain = RootChain(_rootChain);
+    }
+
+    /**
+     * @notice Deduct from user's post-hack deposit balance
+     * @dev Called by predicates during withdrawal to track user's deposited balance
+     * @param _user Address of the user
+     * @param _token Address of the token
+     * @param _amount Amount to deduct
+     */
+    function deductPostHackDeposit(
+        address _user,
+        address _token,
+        uint256 _amount
+    ) external isPredicateAuthorized {
+        require(postHackDeposits[_user][_token] >= _amount, "INSUFFICIENT_POST_HACK_DEPOSIT");
+        postHackDeposits[_user][_token] = postHackDeposits[_user][_token].sub(_amount);
+        emit PostHackDepositDeducted(_user, _token, _amount, postHackDeposits[_user][_token]);
+    }
+
+    /**
+     * @notice Get user's post-hack deposit balance for a token
+     * @param _user Address of the user
+     * @param _token Address of the token
+     * @return The amount of post-hack deposits for this user and token
+     */
+    function getPostHackDeposit(
+        address _user,
+        address _token
+    ) external view returns (uint256) {
+        return postHackDeposits[_user][_token];
     }
 
     function _safeTransferERC721(address _user, address _token, uint256 _tokenId) private {

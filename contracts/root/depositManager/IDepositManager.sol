@@ -9,4 +9,13 @@ interface IDepositManager {
     ) external;
     function depositERC20(address _token, uint256 _amount) external;
     function depositERC721(address _token, uint256 _tokenId) external;
+    function deductPostHackDeposit(
+        address _user,
+        address _token,
+        uint256 _amount
+    ) external;
+    function getPostHackDeposit(
+        address _user,
+        address _token
+    ) external view returns (uint256);
 }
