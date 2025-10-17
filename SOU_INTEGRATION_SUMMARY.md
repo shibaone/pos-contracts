@@ -323,42 +323,4 @@ A: No. Users can only withdraw what they deposited post-hack. Pre-hack balances 
 **Q: Does this work with the existing blacklist feature?**
 A: Yes! Blacklisted exits are deferred and never reach `onFinalizeExit()`.
 
----
-
-## Next Steps
-
-1. **Test on Mainnet Fork**
-   - Use Hardhat fork
-   - Simulate various scenarios
-   - Verify SOU minting works
-
-2. **Deploy to Testnet**
-   - Full integration test
-   - UI testing with SOU portal
-
-3. **Security Audit** (Recommended)
-   - Review withdrawal logic
-   - Test edge cases
-   - Verify no DOS vectors
-
-4. **Mainnet Deployment**
-   - Deploy SOUAdapter
-   - Upgrade contracts via proxy
-   - Configure authorizations
-   - Announce to community
-
-5. **Monitor**
-   - Watch events
-   - Track SOU mints vs transfers
-   - Verify no unexpected behavior
-
----
-
-## Contact & Support
-
-For questions or issues during deployment:
-- Review this document
-- Check event logs for errors
-- Test scenarios on fork before mainnet
-
 **Implementation Complete!** ✅
