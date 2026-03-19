@@ -9,10 +9,20 @@ module.exports = {
       gasPrice: "auto",
       allowUnlimitedContractSize: true,
       forking: {
-        url: process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7",
+        url: process.env.FORK_SEPOLIA === "true"
+          ? (process.env.SEPOLIA_RPC_URL || `https://eth-sepolia.g.alchemy.com/v2/${process.env.ALCHEMY_API_KEY}`)
+          : process.env.FORK_PUPPYNET === "true"
+            ? (process.env.PUPPYNET_RPC_URL || "https://puppynet.shibrpc.com")
+            : (process.env.MAINNET_RPC_URL || "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7"),
         blockNumber: process.env.FORK_BLOCK_NUMBER ? parseInt(process.env.FORK_BLOCK_NUMBER) : undefined,
-        enabled: process.env.FORK_MAINNET === "true"
+        enabled: process.env.FORK_MAINNET === "true" || process.env.FORK_PUPPYNET === "true" || process.env.FORK_SEPOLIA === "true"
       },
+    },
+    puppynet: {
+      url: process.env.PUPPYNET_RPC_URL || "https://puppynet.shibrpc.com",
+      accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
+      gas: "auto",
+      gasPrice: "auto",
     },
     sepolia: {
       url: 'https://ethereum-sepolia-rpc.publicnode.com',
@@ -34,11 +44,7 @@ module.exports = {
     }
   },
   etherscan: {
-    apiKey: {
-      sepolia: `${process.env.ETHERSCAN_API_KEY}`,
-      mainnet: `${process.env.ETHERSCAN_API_KEY}`,
-      holesky: `${process.env.ETHERSCAN_API_KEY}`
-    },
+    apiKey: process.env.ETHERSCAN_API_KEY,
     customChains: [
       {
         network: "holesky",

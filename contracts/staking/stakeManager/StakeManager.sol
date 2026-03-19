@@ -194,6 +194,37 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
         _unstake(validatorId, currentEpoch);
     }
 
+    function forceMigrateDelegation(
+        uint256 fromValidatorId,
+        uint256 toValidatorId,
+        address delegator
+    ) external onlyOwner {
+        IValidatorShare fromContract = IValidatorShare(validators[fromValidatorId].contractAddress);
+        IValidatorShare toContract = IValidatorShare(validators[toValidatorId].contractAddress);
+
+        (uint256 totalStake,) = ValidatorShare(address(fromContract)).getTotalStake(delegator);
+        require(totalStake > 0, "No stake to migrate");
+
+        fromContract.migrateOut(delegator, totalStake);
+        toContract.migrateIn(delegator, totalStake);
+    }
+
+    function forceMigrateMultipleDelegations(
+        uint256 fromValidatorId,
+        uint256 toValidatorId,
+        address[] calldata delegators
+    ) external onlyOwner {
+        IValidatorShare fromContract = IValidatorShare(validators[fromValidatorId].contractAddress);
+        IValidatorShare toContract = IValidatorShare(validators[toValidatorId].contractAddress);
+
+        for (uint256 i = 0; i < delegators.length; i++) {
+            (uint256 totalStake,) = ValidatorShare(address(fromContract)).getTotalStake(delegators[i]);
+            if (totalStake == 0) { continue; }
+            fromContract.migrateOut(delegators[i], totalStake);
+            toContract.migrateIn(delegators[i], totalStake);
+        }
+    }
+
     function setCurrentEpoch(uint256 _currentEpoch) external onlyGovernance {
         currentEpoch = _currentEpoch;
     }
