@@ -51,6 +51,12 @@ contract PredicateUtils is ExitsDataStructure, ChainIdMixin {
 
     IWithdrawManager internal withdrawManager;
     IDepositManager internal depositManager;
+    address public souAdapter;
+
+    event SOUAdapterUpdated(address indexed oldAdapter, address indexed newAdapter);
+    event SOUCompensationMinted(uint256 indexed exitId, address indexed user, address indexed token, uint256 amount);
+    event SOUMintFailed(uint256 indexed exitId, address indexed user, address indexed token, uint256 amount);
+    event PartialWithdrawal(uint256 indexed exitId, address indexed user, address indexed token, uint256 postHackAmount, uint256 preHackAmount);
 
     modifier onlyWithdrawManager() {
         require(
@@ -65,11 +71,96 @@ contract PredicateUtils is ExitsDataStructure, ChainIdMixin {
         _;
     }
 
+    /**
+     * @notice Set the SOU adapter contract address
+     * @dev Only owner can set this
+     * @param _souAdapter Address of the SOU adapter contract
+     */
+    function setSOUAdapter(address _souAdapter) external {
+        require(msg.sender == address(withdrawManager), "ONLY_WITHDRAW_MANAGER");
+        emit SOUAdapterUpdated(souAdapter, _souAdapter);
+        souAdapter = _souAdapter;
+    }
+
     function onFinalizeExit(bytes calldata data) external onlyWithdrawManager {
-        (, address token, address exitor, uint256 tokenId) = decodeExitForProcessExit(
+        (uint256 exitId, address token, address exitor, uint256 tokenId) = decodeExitForProcessExit(
             data
         );
-        depositManager.transferAssets(token, exitor, tokenId);
+
+        // Check how much user deposited post-hack
+        uint256 postHackBalance = depositManager.getPostHackDeposit(exitor, token);
+
+        if (postHackBalance >= tokenId) {
+            // User deposited enough post-hack to cover this withdrawal
+            // Deduct from their balance and transfer tokens from pool
+            depositManager.deductPostHackDeposit(exitor, token, tokenId);
+            depositManager.transferAssets(token, exitor, tokenId);
+
+        } else if (postHackBalance > 0) {
+            // Partial post-hack deposit
+            // User deposited SOME tokens post-hack, but not enough for full withdrawal
+            uint256 preHackAmount = tokenId - postHackBalance;
+
+            // Deduct the post-hack portion
+            depositManager.deductPostHackDeposit(exitor, token, postHackBalance);
+
+            // Try to transfer post-hack portion (might fail if pool is empty)
+            // Using low-level call to avoid revert
+            (bool transferSuccess, ) = address(depositManager).call(
+                abi.encodeWithSignature("transferAssets(address,address,uint256)", token, exitor, postHackBalance)
+            );
+
+            if (!transferSuccess) {
+                // Pool is empty even for post-hack portion
+                // Mint SOU for everything
+                preHackAmount = tokenId;
+            }
+
+            // Mint SOU for pre-hack portion
+            if (preHackAmount > 0 && souAdapter != address(0)) {
+                _mintSOUCompensation(exitId, exitor, token, preHackAmount);
+            }
+
+            emit PartialWithdrawal(exitId, exitor, token, postHackBalance, preHackAmount);
+
+        } else {
+            // postHackBalance == 0
+            // User never deposited post-hack (pre-hack victim)
+            // Mint SOU for entire amount
+            if (souAdapter != address(0)) {
+                _mintSOUCompensation(exitId, exitor, token, tokenId);
+            }
+        }
+    }
+
+    /**
+     * @notice Internal function to mint SOU compensation
+     * @param exitId Exit ID for event logging
+     * @param user User address
+     * @param token Token address
+     * @param amount Amount to compensate
+     */
+    function _mintSOUCompensation(
+        uint256 exitId,
+        address user,
+        address token,
+        uint256 amount
+    ) internal {
+        // Low-level call to SOU adapter
+        (bool souSuccess, bytes memory returnData) = souAdapter.call(
+            abi.encodeWithSignature(
+                "mintSOUForBridge(address,address,uint256)",
+                user,
+                token,
+                amount
+            )
+        );
+
+        if (souSuccess && returnData.length >= 32) {
+            emit SOUCompensationMinted(exitId, user, token, amount);
+        } else {
+            emit SOUMintFailed(exitId, user, token, amount);
+        }
     }
 
     function sendBond() internal {
