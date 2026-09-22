@@ -11,7 +11,7 @@
  * Output: Copy the printed implementation address into Step 2 (NEW_IMPL env var).
  */
 
-const { ethers } = require("hardhat");
+const { ethers, artifacts } = require("hardhat");
 require("dotenv").config();
 
 async function main() {
@@ -22,12 +22,23 @@ async function main() {
   console.log("Deployer: ", deployer.address);
   console.log("Balance:  ", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH\n");
 
+  const StakeManager = await ethers.getContractFactory("StakeManager");
+
+  // EIP-170: mainnet rejects runtime bytecode above 24576 bytes (local hardhat allows it)
+  const artifact = await artifacts.readArtifact("StakeManager");
+  const runtimeSize = (artifact.deployedBytecode.length - 2) / 2;
+  console.log(`Runtime bytecode size: ${runtimeSize} / 24576 bytes`);
+  if (runtimeSize > 24576) {
+    throw new Error("StakeManager exceeds the EIP-170 contract size limit — deployment would fail");
+  }
+
   const feeData = await ethers.provider.getFeeData();
   const gasPrice = (feeData.gasPrice * BigInt(12)) / BigInt(10); // +20% buffer
-  const gasLimit = 6_000_000;
+  const estimate = await ethers.provider.estimateGas(await StakeManager.getDeployTransaction());
+  const gasLimit = (estimate * BigInt(120)) / BigInt(100);
+  console.log(`Gas estimate: ${estimate.toString()} (using ${gasLimit.toString()} with buffer)`);
 
   console.log("Deploying StakeManager implementation...");
-  const StakeManager = await ethers.getContractFactory("StakeManager");
   const stakeManager = await StakeManager.deploy({ gasPrice, gasLimit });
   await stakeManager.waitForDeployment();
 

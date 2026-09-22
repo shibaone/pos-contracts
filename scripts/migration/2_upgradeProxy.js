@@ -29,7 +29,9 @@ async function main() {
   }
 
   const network = await ethers.provider.getNetwork();
-  const networkName = network.name === "unknown" ? "mainnet" : network.name;
+  // resolve by chainId; a local fork (31337) follows the FORK_SEPOLIA flag used by hardhat.config.js
+  const CHAIN_NAMES = { 1: "mainnet", 11155111: "sepolia", 31337: process.env.FORK_SEPOLIA === "true" ? "sepolia" : "mainnet" };
+  const networkName = CHAIN_NAMES[Number(network.chainId)];
   const addrs = ADDRESSES[networkName];
   if (!addrs) throw new Error(`No address config for network: ${networkName}`);
   if (addrs.STAKE_MANAGER_PROXY.startsWith("TODO")) {
