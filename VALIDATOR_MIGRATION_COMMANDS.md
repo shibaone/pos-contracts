@@ -5,7 +5,9 @@ This guide covers closing a validator and migrating its delegations to another v
 **Access required:**
 - **Proxy owner key** — for upgrading the StakeManager implementation
 - **Governance key** — for `forceUnstake`
-- **StakeManager owner key** — for delegation migration (same as proxy owner)
+- **StakeManager owner key** — for delegation migration. This is `Ownable._owner` (storage slot 1),
+  **not** what `owner()` returns through the proxy (that is the proxy owner). They match on Sepolia;
+  check mainnet with `cast storage <StakeManagerProxy> 1`.
 
 ---
 
@@ -114,12 +116,22 @@ npx hardhat run scripts/migration/3_migrateDelegations.js --network <network>
 ```
 
 **What this does:**
+- Verifies the caller is the StakeManager owner (reads storage slot 1)
 - Verifies source validator is inactive (will throw if still active)
-- Verifies target validator is active
-- Prints per-delegator stakes before migration
-- Calls `forceMigrateMultipleDelegations(from, to, delegators)` directly as StakeManager owner
-- Verifies all delegator balances on source are zero after migration
+- Verifies target validator is active, unlocked and accepts delegation
+- Prints per-delegator stakes before migration, and warns about delegators expected to fail
+  (withdraw-blacklisted with pending rewards, or an ongoing exit on the target)
+- Calls `forceMigrateMultipleDelegations(from, to, batch)` in batches of `BATCH_SIZE` (default 50)
+- Reports `DelegationForceMigrated` / `DelegationForceMigrationFailed` events per batch
+- Verifies migrated delegators' balances on source are zero (a few wei of rounding dust is tolerated)
 - Prints per-delegator stakes on target after migration
+
+**Contract behaviour:**
+- Reverts with `Invalid migration` if `from == to`, the source has no delegation contract,
+  or the target validator is not active
+- A delegator whose migration reverts is skipped and emits `DelegationForceMigrationFailed(from, to, delegator, reason)`;
+  the rest of the batch still goes through. Fix the cause and re-run the script with just those addresses
+- An out-of-gas inside the batch reverts the whole tx (`Out of gas`) so no delegator is ever silently skipped
 
 ---
 
