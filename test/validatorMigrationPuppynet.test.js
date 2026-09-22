@@ -76,7 +76,6 @@ describe("Validator 7 Closure & Migration — Sepolia Fork", function () {
   let validatorShare5;
   let governance;
   let proxyOwner;
-  let stakeManagerOwner;
   let setupComplete = false;
 
   before(async function () {
@@ -94,14 +93,6 @@ describe("Validator 7 Closure & Migration — Sepolia Fork", function () {
     }
     governance  = await ethers.getSigner(ADDRESSES.Governance);
     proxyOwner  = await ethers.getSigner(ADDRESSES.ProxyOwner);
-
-    // forceMigrate* are onlyOwner (Ownable._owner, slot 1) — not governance, and
-    // not the proxy owner returned by owner() through the proxy
-    const ownerSlot = await ethers.provider.getStorage(ADDRESSES.StakeManagerProxy, 1);
-    const ownerAddr = ethers.getAddress("0x" + ownerSlot.slice(-40));
-    await network.provider.request({ method: "hardhat_impersonateAccount", params: [ownerAddr] });
-    await network.provider.send("hardhat_setBalance", [ownerAddr, ETH_100]);
-    stakeManagerOwner = await ethers.getSigner(ownerAddr);
 
     // ── Attach contracts ──────────────────────────────────────────────────────
     stakeManager   = await ethers.getContractAt("StakeManager",   ADDRESSES.StakeManagerProxy);
@@ -212,7 +203,8 @@ describe("Validator 7 Closure & Migration — Sepolia Fork", function () {
 
     it("should migrate all delegators in one call", async function () {
       await (
-        await stakeManager.connect(stakeManagerOwner).forceMigrateMultipleDelegations(
+        // forceMigrate* are onlyOwner, and StakeManager.isOwner() checks the proxy owner (not governance)
+        await stakeManager.connect(proxyOwner).forceMigrateMultipleDelegations(
           VAL_CLOSE,
           VAL_TARGET,
           ADDRESSES.DelegatorsOfVal7

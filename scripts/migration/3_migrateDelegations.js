@@ -48,13 +48,6 @@ const DUST_WEI = 1000n;
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-// StakeManager.owner() through the proxy returns the *proxy* owner, not the
-// Ownable owner checked by onlyOwner — read Ownable._owner (slot 1) directly
-async function readStakeManagerOwner(stakeManagerAddress) {
-  const raw = await ethers.provider.getStorage(stakeManagerAddress, 1);
-  return ethers.getAddress("0x" + raw.slice(-40));
-}
-
 async function main() {
   if (FROM_VALIDATOR_ID === 0 || TO_VALIDATOR_ID === 0) {
     throw new Error("Set FROM_VALIDATOR_ID and TO_VALIDATOR_ID before running");
@@ -89,8 +82,9 @@ async function main() {
 
   const stakeManager = await ethers.getContractAt("StakeManager", addrs.STAKE_MANAGER_PROXY);
 
-  // Verify deployer is the StakeManager (Ownable) owner
-  const owner = await readStakeManagerOwner(addrs.STAKE_MANAGER_PROXY);
+  // Verify deployer is the StakeManager owner — StakeManager.isOwner() (used by
+  // onlyOwner) checks the proxy owner, which is what owner() returns through the proxy
+  const owner = await stakeManager.owner();
   if (owner.toLowerCase() !== deployer.address.toLowerCase()) {
     throw new Error(`StakeManager owner is ${owner} — run with the correct private key`);
   }

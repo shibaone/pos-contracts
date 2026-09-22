@@ -5,9 +5,9 @@ This guide covers closing a validator and migrating its delegations to another v
 **Access required:**
 - **Proxy owner key** — for upgrading the StakeManager implementation
 - **Governance key** — for `forceUnstake`
-- **StakeManager owner key** — for delegation migration. This is `Ownable._owner` (storage slot 1),
-  **not** what `owner()` returns through the proxy (that is the proxy owner). They match on Sepolia;
-  check mainnet with `cast storage <StakeManagerProxy> 1`.
+- **StakeManager owner key** — for delegation migration. `StakeManager.isOwner()` is overridden to check
+  the proxy owner, so this is the same key as the proxy owner (what `owner()` returns on the proxy / Etherscan).
+  Storage slot 1 (`Ownable._owner`) is not used for access control.
 
 ---
 
@@ -116,7 +116,7 @@ npx hardhat run scripts/migration/3_migrateDelegations.js --network <network>
 ```
 
 **What this does:**
-- Verifies the caller is the StakeManager owner (reads storage slot 1)
+- Verifies the caller is the StakeManager owner (the proxy owner)
 - Verifies source validator is inactive (will throw if still active)
 - Verifies target validator is active, unlocked and accepts delegation
 - Prints per-delegator stakes before migration, and warns about delegators expected to fail

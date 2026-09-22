@@ -30,12 +30,6 @@ async function impersonate(addr) {
   return ethers.getSigner(addr);
 }
 
-// StakeManager.owner() through the proxy returns the *proxy* owner, so read Ownable._owner (slot 1) directly
-async function readStakeManagerOwner() {
-  const raw = await ethers.provider.getStorage(STAKE_MANAGER_PROXY, 1);
-  return ethers.getAddress("0x" + raw.slice(-40));
-}
-
 async function readGovernance() {
   // slot 0 packs Lockable.locked (1 byte) with Governable.governance
   const raw = await ethers.provider.getStorage(STAKE_MANAGER_PROXY, 0);
@@ -59,16 +53,16 @@ describe("forceMigrateDelegation — Sepolia Fork", function () {
     stakeManager = await ethers.getContractAt("StakeManager", STAKE_MANAGER_PROXY);
     bone = await ethers.getContractAt("IERC20", BONE_TOKEN);
 
-    owner      = await impersonate(await readStakeManagerOwner());
+    // StakeManager.isOwner() (used by onlyOwner) checks the proxy owner
+    const proxy = await ethers.getContractAt("StakeManagerProxy", STAKE_MANAGER_PROXY);
+    owner      = await impersonate(await proxy.owner());
     governance = await impersonate(await readGovernance());
     [stranger] = await ethers.getSigners();
 
     // ── Upgrade to the new implementation ─────────────────────────────────────
-    const proxy = await ethers.getContractAt("StakeManagerProxy", STAKE_MANAGER_PROXY);
-    const proxyOwner = await impersonate(await proxy.owner());
     const newImpl = await (await ethers.getContractFactory("StakeManager")).deploy();
     await newImpl.waitForDeployment();
-    await (await proxy.connect(proxyOwner).updateImplementation(await newImpl.getAddress())).wait();
+    await (await proxy.connect(owner).updateImplementation(await newImpl.getAddress())).wait();
 
     fromVS = await ethers.getContractAt("ValidatorShare", (await stakeManager.validators(VAL_CLOSE)).contractAddress);
     toVS   = await ethers.getContractAt("ValidatorShare", (await stakeManager.validators(VAL_TARGET)).contractAddress);
