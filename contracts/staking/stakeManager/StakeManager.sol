@@ -49,6 +49,9 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
 
     event BlacklistUpdated(address indexed user, bool depositBlocked, bool withdrawBlocked, uint256 timestamp, address operator);
 
+    event DelegationForceMigrated(uint256 indexed fromValidatorId, uint256 indexed toValidatorId, address indexed delegator, uint256 amount);
+    event DelegationForceMigrationFailed(uint256 indexed fromValidatorId, uint256 indexed toValidatorId, address indexed delegator, bytes reason);
+
     modifier onlyStaker(uint256 validatorId) {
         _assertStaker(validatorId);
         _;
@@ -199,30 +202,53 @@ contract StakeManager is StakeManagerStorage, Initializable, IStakeManager, Dele
         uint256 toValidatorId,
         address delegator
     ) external onlyOwner {
-        IValidatorShare fromContract = IValidatorShare(validators[fromValidatorId].contractAddress);
-        IValidatorShare toContract = IValidatorShare(validators[toValidatorId].contractAddress);
-
-        (uint256 totalStake,) = ValidatorShare(address(fromContract)).getTotalStake(delegator);
-        require(totalStake > 0, "No stake to migrate");
-
-        fromContract.migrateOut(delegator, totalStake);
-        toContract.migrateIn(delegator, totalStake);
+        _validateForceMigration(fromValidatorId, toValidatorId);
+        require(_forceMigrate(fromValidatorId, toValidatorId, delegator) > 0, "No stake");
     }
 
+    // a delegator whose migration reverts (e.g. withdraw blacklisted with pending rewards, or ongoing exit on the target)
+    // emits DelegationForceMigrationFailed and is skipped instead of reverting the whole batch
     function forceMigrateMultipleDelegations(
         uint256 fromValidatorId,
         uint256 toValidatorId,
         address[] calldata delegators
     ) external onlyOwner {
-        IValidatorShare fromContract = IValidatorShare(validators[fromValidatorId].contractAddress);
-        IValidatorShare toContract = IValidatorShare(validators[toValidatorId].contractAddress);
+        _validateForceMigration(fromValidatorId, toValidatorId);
 
         for (uint256 i = 0; i < delegators.length; i++) {
-            (uint256 totalStake,) = ValidatorShare(address(fromContract)).getTotalStake(delegators[i]);
-            if (totalStake == 0) { continue; }
-            fromContract.migrateOut(delegators[i], totalStake);
-            toContract.migrateIn(delegators[i], totalStake);
+            (bool success, bytes memory reason) = address(this).call(
+                abi.encodeWithSelector(this.forceMigrateDelegationSelf.selector, fromValidatorId, toValidatorId, delegators[i])
+            );
+            if (!success) {
+                // empty revert data means out of gas: revert everything so gas estimation can't silently skip delegators
+                require(reason.length != 0, "Out of gas");
+                emit DelegationForceMigrationFailed(fromValidatorId, toValidatorId, delegators[i], reason);
+            }
         }
+    }
+
+    // only callable by this contract, isolates per-delegator reverts in forceMigrateMultipleDelegations
+    function forceMigrateDelegationSelf(uint256 fromValidatorId, uint256 toValidatorId, address delegator) external {
+        require(msg.sender == address(this));
+        _forceMigrate(fromValidatorId, toValidatorId, delegator);
+    }
+
+    function _validateForceMigration(uint256 fromValidatorId, uint256 toValidatorId) private view {
+        require(
+            fromValidatorId != toValidatorId && validators[fromValidatorId].contractAddress != address(0) && isValidator(toValidatorId),
+            "Invalid migration"
+        );
+    }
+
+    function _forceMigrate(uint256 fromValidatorId, uint256 toValidatorId, address delegator) private returns (uint256) {
+        address fromContract = validators[fromValidatorId].contractAddress;
+        (uint256 totalStake,) = ValidatorShare(fromContract).getTotalStake(delegator);
+        if (totalStake != 0) {
+            IValidatorShare(fromContract).migrateOut(delegator, totalStake);
+            IValidatorShare(validators[toValidatorId].contractAddress).migrateIn(delegator, totalStake);
+            emit DelegationForceMigrated(fromValidatorId, toValidatorId, delegator, totalStake);
+        }
+        return totalStake;
     }
 
     function setCurrentEpoch(uint256 _currentEpoch) external onlyGovernance {
