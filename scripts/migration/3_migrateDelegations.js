@@ -12,6 +12,8 @@
  */
 
 const { ethers } = require("hardhat");
+const fs = require("fs");
+const path = require("path");
 require("dotenv").config();
 
 // ── Fill in before running ────────────────────────────────────────────────────
@@ -25,26 +27,63 @@ const ADDRESSES = {
   },
 };
 
-// Validator being closed (must already be force-unstaked)
-const FROM_VALIDATOR_ID = 0; // TODO: set validator ID to close
+// Validator being closed (must already be force-unstaked), env overrides the default
+const FROM_VALIDATOR_ID = Number(process.env.FROM_VALIDATOR_ID || 0); // TODO: set validator ID to close
 
 // Validator receiving the migrated delegations (must be active)
-const TO_VALIDATOR_ID = 0; // TODO: set target validator ID
+const TO_VALIDATOR_ID = Number(process.env.TO_VALIDATOR_ID || 0); // TODO: set target validator ID
 
-// List of delegator addresses to migrate from FROM_VALIDATOR_ID → TO_VALIDATOR_ID
-// Get this list by scanning on-chain events (see VALIDATOR_MIGRATION_COMMANDS.md).
-// Addresses with zero stake are silently skipped by the contract.
-const DELEGATORS = [
+// List of delegator addresses to migrate from FROM_VALIDATOR_ID → TO_VALIDATOR_ID.
+// Leave empty to load them from the file written by 0_fetchDelegators.js:
+//   node scripts/migration/0_fetchDelegators.js --validator <FROM_VALIDATOR_ID> --verify
+// Override the path with DELEGATORS_FILE. Addresses with zero stake are silently
+// skipped by the contract.
+const DELEGATORS_OVERRIDE = [
   // "0xADDRESS_1",
   // "0xADDRESS_2",
-  // TODO: fill in delegator addresses
 ];
 
+const DELEGATORS_FILE = process.env.DELEGATORS_FILE || path.join(__dirname, "delegators.json");
+
+function loadDelegators() {
+  if (DELEGATORS_OVERRIDE.length > 0) {
+    console.log(`Delegators: ${DELEGATORS_OVERRIDE.length} from DELEGATORS_OVERRIDE in this script`);
+    return DELEGATORS_OVERRIDE;
+  }
+  if (!fs.existsSync(DELEGATORS_FILE)) {
+    throw new Error(
+      `No delegator list. Run:\n` +
+        `  node scripts/migration/0_fetchDelegators.js --validator ${FROM_VALIDATOR_ID} --verify\n` +
+        `or fill in DELEGATORS_OVERRIDE (looked for ${DELEGATORS_FILE})`
+    );
+  }
+  const data = JSON.parse(fs.readFileSync(DELEGATORS_FILE, "utf8"));
+  const entry = data.validators[String(FROM_VALIDATOR_ID)];
+  if (!entry || entry.addresses.length === 0) {
+    throw new Error(`${DELEGATORS_FILE} has no delegators for validator ${FROM_VALIDATOR_ID}`);
+  }
+  console.log(`Delegators: ${entry.addresses.length} from ${DELEGATORS_FILE} (fetched ${data.fetchedAt}, verified: ${data.verified})`);
+  if (!data.verified) {
+    console.log("⚠️  That list was not checked against chain — re-run 0_fetchDelegators.js with --verify");
+  }
+  return entry.addresses;
+}
+
 // Delegators per transaction — keeps each tx well under the block gas limit
-const BATCH_SIZE = 50;
+const BATCH_SIZE = Number(process.env.BATCH_SIZE || 50);
 
 // migrateOut rounds shares down, so a few wei can remain on the source validator
 const DUST_WEI = 1000n;
+
+// read calls issued at once during pre/post-flight — the checks are hundreds of
+// calls, and running them one at a time times out against a remote RPC
+const RPC_CONCURRENCY = Number(process.env.RPC_CONCURRENCY || 10);
+
+function chunks(arr, size) {
+  const out = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -55,11 +94,9 @@ async function main() {
   if (FROM_VALIDATOR_ID === TO_VALIDATOR_ID) {
     throw new Error("FROM_VALIDATOR_ID and TO_VALIDATOR_ID must differ");
   }
-  if (DELEGATORS.length === 0) {
-    throw new Error("DELEGATORS list is empty — fill it in before running");
-  }
-  if (DELEGATORS.some((a) => a.startsWith("TODO"))) {
-    throw new Error("Replace all TODO placeholders in DELEGATORS");
+  const DELEGATORS = loadDelegators();
+  if (!DELEGATORS.every((a) => ethers.isAddress(a))) {
+    throw new Error(`DELEGATORS contains an invalid address: ${DELEGATORS.find((a) => !ethers.isAddress(a))}`);
   }
   if (new Set(DELEGATORS.map((a) => a.toLowerCase())).size !== DELEGATORS.length) {
     throw new Error("DELEGATORS contains duplicates");
@@ -136,27 +173,32 @@ async function main() {
   let totalStake = 0n;
   let activeCount2 = 0;
   const expectedFailures = [];
-  for (const d of DELEGATORS) {
-    const [stake] = await fromVS.getTotalStake(d);
-    if (stake === 0n) {
-      console.log(`  - ${d}  (zero stake — will be skipped)`);
-      continue;
-    }
-    console.log(`  ✓ ${d}  ${ethers.formatUnits(stake, 18)} BONE`);
-    totalStake += stake;
-    activeCount2++;
+  for (const chunk of chunks(DELEGATORS, RPC_CONCURRENCY)) {
+    const checks = await Promise.all(
+      chunk.map(async (d) => ({
+        d,
+        stake: (await fromVS.getTotalStake(d))[0],
+        bl: await stakeManager.blacklist(d),
+        rewardsFrom: await fromVS.getLiquidRewards(d),
+        rewardsTo: await toVS.getLiquidRewards(d),
+        targetUnbond: await toVS.unbonds(d),
+      }))
+    );
+    for (const { d, stake, bl, rewardsFrom, rewardsTo, targetUnbond } of checks) {
+      if (stake === 0n) {
+        console.log(`  - ${d}  (zero stake — will be skipped)`);
+        continue;
+      }
+      console.log(`  ✓ ${d}  ${ethers.formatUnits(stake, 18)} BONE`);
+      totalStake += stake;
+      activeCount2++;
 
-    const [bl, rewardsFrom, rewardsTo, targetUnbond] = await Promise.all([
-      stakeManager.blacklist(d),
-      fromVS.getLiquidRewards(d),
-      toVS.getLiquidRewards(d),
-      toVS.unbonds(d),
-    ]);
-    if (bl.withdrawBlocked && (rewardsFrom > 0n || rewardsTo > 0n)) {
-      expectedFailures.push(`${d}  withdraw-blacklisted with pending rewards`);
-    }
-    if (targetUnbond.shares > 0n) {
-      expectedFailures.push(`${d}  ongoing exit on target validator`);
+      if (bl.withdrawBlocked && (rewardsFrom > 0n || rewardsTo > 0n)) {
+        expectedFailures.push(`${d}  withdraw-blacklisted with pending rewards`);
+      }
+      if (targetUnbond.shares > 0n) {
+        expectedFailures.push(`${d}  ongoing exit on target validator`);
+      }
     }
   }
   console.log(`\nTotal stake to migrate: ${ethers.formatUnits(totalStake, 18)} BONE across ${activeCount2} active delegators`);
@@ -170,10 +212,7 @@ async function main() {
   console.log("\n── Migrating delegations ───────────────────────────────────────");
   console.log(`From validator ${FROM_VALIDATOR_ID} → To validator ${TO_VALIDATOR_ID}`);
 
-  const batches = [];
-  for (let i = 0; i < DELEGATORS.length; i += BATCH_SIZE) {
-    batches.push(DELEGATORS.slice(i, i + BATCH_SIZE));
-  }
+  const batches = chunks(DELEGATORS, BATCH_SIZE);
   console.log(`${batches.length} batch(es) of up to ${BATCH_SIZE} delegators`);
 
   const failed = [];
@@ -227,27 +266,36 @@ async function main() {
   const failedSet = new Set(failed.map((f) => f.delegator.toLowerCase()));
   console.log("\nDelegator stakes on source validator (should all be zero, up to rounding dust):");
   let residualFound = false;
-  for (const d of DELEGATORS) {
-    if (failedSet.has(d.toLowerCase())) continue;
-    const [stake] = await fromVS.getTotalStake(d);
-    if (stake > DUST_WEI) {
-      console.log(`  ✗ ${d}  still has ${ethers.formatUnits(stake, 18)} BONE — NOT migrated!`);
-      residualFound = true;
-    } else if (stake > 0n) {
-      console.log(`  ~ ${d}  ${stake.toString()} wei rounding dust left`);
+  let dustTotal = 0n;
+  const remaining = DELEGATORS.filter((d) => !failedSet.has(d.toLowerCase()));
+  for (const chunk of chunks(remaining, RPC_CONCURRENCY)) {
+    const stakes = await Promise.all(chunk.map((d) => fromVS.getTotalStake(d).then(([s]) => s)));
+    for (const [i, stake] of stakes.entries()) {
+      if (stake > DUST_WEI) {
+        console.log(`  ✗ ${chunk[i]}  still has ${ethers.formatUnits(stake, 18)} BONE — NOT migrated!`);
+        residualFound = true;
+      } else if (stake > 0n) {
+        dustTotal += stake;
+        console.log(`  ~ ${chunk[i]}  ${stake.toString()} wei rounding dust left`);
+      }
     }
   }
   if (!residualFound) {
-    console.log("  ✓ All migrated delegators cleared from source validator");
+    console.log(`  ✓ All migrated delegators cleared from source validator (${dustTotal} wei dust in total)`);
   }
 
   console.log(`\nDelegator stakes on target validator ${TO_VALIDATOR_ID}:`);
-  for (const d of DELEGATORS) {
-    const [stake] = await toVS.getTotalStake(d);
-    if (stake > 0n) {
-      console.log(`  ✓ ${d}  ${ethers.formatUnits(stake, 18)} BONE`);
+  let migratedTotal = 0n;
+  for (const chunk of chunks(DELEGATORS, RPC_CONCURRENCY)) {
+    const stakes = await Promise.all(chunk.map((d) => toVS.getTotalStake(d).then(([s]) => s)));
+    for (const [i, stake] of stakes.entries()) {
+      if (stake > 0n) {
+        migratedTotal += stake;
+        console.log(`  ✓ ${chunk[i]}  ${ethers.formatUnits(stake, 18)} BONE`);
+      }
     }
   }
+  console.log(`\nTotal now held by these delegators on validator ${TO_VALIDATOR_ID}: ${ethers.formatUnits(migratedTotal, 18)} BONE`);
 
   if (residualFound) {
     throw new Error("Some delegators were not fully migrated — check logs above");
