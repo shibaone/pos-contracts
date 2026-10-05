@@ -18,6 +18,12 @@ module.exports = {
         enabled: process.env.FORK_MAINNET === "true" || process.env.FORK_PUPPYNET === "true" || process.env.FORK_SEPOLIA === "true"
       },
     },
+    localhost: {
+      url: "http://127.0.0.1:8545",
+      // a forked node pulls state from the upstream RPC on first touch, so large
+      // batch calls can sit well past the default timeout
+      timeout: 600000,
+    },
     puppynet: {
       url: process.env.PUPPYNET_RPC_URL || "https://puppynet.shibrpc.com",
       accounts: process.env.PRIVATE_KEY ? [process.env.PRIVATE_KEY] : [],
@@ -31,7 +37,7 @@ module.exports = {
       gasPrice: "auto",
     },
     mainnet: {
-      url: `https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7`,
+      url: `https://eth.drpc.org`,
       accounts: [process.env.PRIVATE_KEY],
       gas: "auto",
       gasPrice: "auto",
