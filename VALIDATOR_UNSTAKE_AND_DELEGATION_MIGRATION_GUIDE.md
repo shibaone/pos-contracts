@@ -214,6 +214,11 @@ Delegators can migrate their stake to another validator after the unstaking vali
 
 **CRITICAL:** Migration is blocked during the unstaking epoch. Delegators must wait for the next checkpoint to be submitted.
 
+> **This applies to a voluntary `unstake()`**, which sets `deactivationEpoch = currentEpoch + 1`.
+> A governance `forceUnstake()` sets `deactivationEpoch = currentEpoch`, so migration is possible
+> straight away and there is nothing to wait for. See `VALIDATOR_MIGRATION_COMMANDS.md` for the
+> admin-driven force migration.
+
 **Contract:** `StakeManager.sol` (line 459-473)  
 **Function Called During Migration:**
 ```solidity
@@ -1209,7 +1214,7 @@ const validatorShareAddress = validator.contractAddress;
 3. Call `unstakeClaim(validatorId)` → Receives validator stake
 
 ### Delegator Migration Flow (After Validator Unstakes)
-1. Wait for checkpoint to pass (`currentEpoch >= deactivationEpoch`)
+1. Wait for checkpoint to pass (`currentEpoch >= deactivationEpoch`); after a governance `forceUnstake` this already holds
 2. Call `migrateDelegation(fromId, toId, amount)` → Instant migration
 3. Continue earning rewards on new validator
 
