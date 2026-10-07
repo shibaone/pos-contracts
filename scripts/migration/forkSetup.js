@@ -1,95 +1,52 @@
 /**
- * Fork-only setup for rehearsing the migration against mainnet state.
+ * Fork rehearsal: checks the local fork and prints the full sequence to run against it.
  *
- * Refuses to run anywhere except a local fork (chainId 31337). It:
- *   1. deploys the new StakeManager implementation
- *   2. points the mainnet proxy at it, as the impersonated proxy owner
- *   3. hands proxy ownership to the first local account, so 2b_forceUnstakeValidator.js
- *      and 3_migrateDelegations.js can then run completely unmodified
- *   4. reports the state of the source and target validators
+ * The rehearsal runs exactly what the hardware wallet will sign: every prepare step writes a
+ * calldata file, forkExecute.js sends it as the admin on the fork, and the matching verify step
+ * checks the result. Nothing changes ownership.
  *
- * Run (against a node started with `npx hardhat node --fork <mainnet rpc>`):
- *   FROM_VALIDATOR_ID=14 TO_VALIDATOR_ID=8 npx hardhat run scripts/migration/forkSetup.js --network localhost
+ * Start a fork first:
+ *   anvil --fork-url $MAINNET_RPC_URL --fork-block-number <block>
+ * Then:
+ *   node scripts/migration/forkSetup.js --from 9,10 --to 11,3,2,4,5
  */
 
-const { ethers, network } = require("hardhat");
-require("dotenv").config();
-
-const STAKE_MANAGER_PROXY = "0x65218A41Fb92637254B4f8c97448d3dF343A3064";
-const ETH_100 = "0x56BC75E2D63100000";
-
-const FROM_VALIDATOR_ID = Number(process.env.FROM_VALIDATOR_ID || 0);
-const TO_VALIDATOR_ID = Number(process.env.TO_VALIDATOR_ID || 0);
+const lib = require("./lib");
+const { MAINNET, fmt } = lib;
 
 const STATUS = ["Inactive", "Active", "Locked", "Unstaked"];
-const fmt = (wei) => Number(ethers.formatUnits(wei, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
-
-async function impersonate(address) {
-  await network.provider.request({ method: "hardhat_impersonateAccount", params: [address] });
-  await network.provider.send("hardhat_setBalance", [address, ETH_100]);
-  return ethers.getSigner(address);
-}
 
 async function main() {
-  const { chainId } = await ethers.provider.getNetwork();
-  if (Number(chainId) !== 31337) {
-    throw new Error(`Refusing to run on chainId ${chainId} — this script is for a local fork only`);
+  const args = lib.parseArgs();
+  const from = String(args.from || "").split(",").filter(Boolean).map(Number);
+  const to = String(args.to || "").split(",").filter(Boolean).map(Number);
+  const ctx = await lib.connect({ fork: true });
+  const { sm } = lib.contracts(ctx.provider);
+
+  console.log("StakeManager proxy: ", MAINNET.STAKE_MANAGER_PROXY);
+  console.log("implementation:     ", await sm.implementation());
+  console.log("proxy owner:        ", await sm.owner());
+  console.log("currentEpoch:       ", String(await sm.currentEpoch()));
+  for (const id of [...from, ...to]) {
+    const v = await sm.validators(id);
+    console.log(`validator ${String(id).padStart(2)}: ${STATUS[Number(v.status)].padEnd(8)} isValidator ${String(await sm.isValidator(id)).padEnd(5)} self ${fmt(v.amount).padStart(10)}  delegated ${fmt(v.delegatedAmount).padStart(14)}`);
   }
 
-  const [local] = await ethers.getSigners();
-  const proxy = await ethers.getContractAt("StakeManagerProxy", STAKE_MANAGER_PROXY);
-  const currentOwner = await proxy.owner();
-  const currentImpl = await proxy.implementation();
-
-  console.log("── Fork setup ──────────────────────────────────────────────────");
-  console.log("StakeManagerProxy:   ", STAKE_MANAGER_PROXY);
-  console.log("Current impl:        ", currentImpl);
-  console.log("Current proxy owner: ", currentOwner);
-  console.log("Local account:       ", local.address);
-
-  const owner = await impersonate(currentOwner);
-
-  const newImpl = await (await ethers.getContractFactory("StakeManager")).deploy();
-  await newImpl.waitForDeployment();
-  const newImplAddress = await newImpl.getAddress();
-  const size = (await ethers.provider.getCode(newImplAddress)).length / 2 - 1;
-  console.log("\nNew impl deployed:   ", newImplAddress);
-  console.log(`Runtime size:         ${size} bytes (limit 24576, headroom ${24576 - size})`);
-
-  await (await proxy.connect(owner).updateImplementation(newImplAddress)).wait();
-  console.log("Impl updated:        ", await proxy.implementation());
-
-  // the real scripts sign with a local key, so move proxy ownership to it
-  await (await proxy.connect(owner).transferOwnership(local.address)).wait();
-  console.log("Proxy owner now:     ", await proxy.owner());
-
-  await network.provider.request({ method: "hardhat_stopImpersonatingAccount", params: [currentOwner] });
-
-  const stakeManager = await ethers.getContractAt("StakeManager", STAKE_MANAGER_PROXY);
-  console.log("\nStakeManager.owner():", await stakeManager.owner());
-  console.log("currentEpoch:        ", (await stakeManager.currentEpoch()).toString());
-  console.log("delegationEnabled:   ", await stakeManager.delegationEnabled());
-
-  for (const id of [FROM_VALIDATOR_ID, TO_VALIDATOR_ID]) {
-    if (!id) continue;
-    const v = await stakeManager.validators(id);
-    const label = id === FROM_VALIDATOR_ID ? "source" : "target";
-    console.log(
-      `\nValidator ${id} (${label}):` +
-        `\n  status:          ${STATUS[Number(v.status)]} (isValidator: ${await stakeManager.isValidator(id)})` +
-        `\n  share contract:  ${v.contractAddress}` +
-        `\n  selfStake:       ${fmt(v.amount)} BONE` +
-        `\n  delegatedAmount: ${fmt(v.delegatedAmount)} BONE`
-    );
-  }
-
-  console.log("\n✅ Fork ready. Now run:");
-  console.log(`   FROM_VALIDATOR_ID=${FROM_VALIDATOR_ID} TO_VALIDATOR_ID=${TO_VALIDATOR_ID} npx hardhat run scripts/migration/3_migrateDelegations.js --network localhost`);
+  const f = "--fork";
+  const x = "node scripts/migration/forkExecute.js scripts/migration/out/<file>.json";
+  console.log(`
+Rehearsal sequence (after each forkExecute, run the step's verify with the printed hash and ${f}):
+  1. npx hardhat run scripts/migration/1_deployStakeManager.js --network localhost
+  2. node scripts/migration/2_upgradeProxy.js prepare --impl <impl> --codehash <codehash> ${f}      then ${x}
+  3. node scripts/migration/2a_stopAuctions.js prepare ${f}                                         then ${x}
+  4. node scripts/migration/2b_forceUnstakeValidator.js prepare --validator <id> --impl <impl> ${f} (each source) then ${x}
+  5. node scripts/migration/0b_buildAllocation.js --from ${from.join(",") || "<ids>"} --to ${to.join(",") || "<ids>"} --block <fork block>   (on mainnet: same rows as the fork)
+  6. node scripts/migration/3_migrateDelegations.js prepare --pilot ${f}, then prepare ${f}         then ${x} per batch
+  7. node scripts/migration/3_migrateDelegations.js status ${f}
+  8. node scripts/migration/2_upgradeProxy.js prepare --rollback ${f}                               then ${x}`);
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  });
+main().catch((e) => {
+  console.error(`\nABORTED: ${e.message}`);
+  process.exit(1);
+});

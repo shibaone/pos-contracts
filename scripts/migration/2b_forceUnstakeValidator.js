@@ -1,124 +1,164 @@
 /**
- * Step 2b: Force-unstake a validator via governance
+ * Step 2b: Force-unstake a validator via Governance
  *
- * Calls forceUnstake() on StakeManager through the Governance contract.
- * Must be run with the GOVERNANCE OWNER's private key (PRIVATE_KEY in .env).
+ * forceUnstake() does not check whether the validator is already unstaking. A second unstake
+ * subtracts its stake from the active total again, decrements the validator count again and,
+ * because _removeSigner cannot find the signer, drops signers[0]. Nothing on-chain prevents it,
+ * so this script enforces the guard:
+ *   - prepare refuses unless the validator is active with deactivationEpoch == 0, its signer is in
+ *     the signer list, it has no auction bid and auctions are stopped (run 2a first);
+ *   - verify confirms exactly one UnstakeInit for the validator and that the validator count and
+ *     total stake dropped exactly once.
  *
- * Prerequisite: Step 2 (proxy upgrade) must already be complete.
- * Next step:    Step 3 (3_migrateDelegations.js) — migrate delegator stakes.
+ * The operator's own unstake() requires deactivationEpoch == 0, so once forceUnstake lands it cannot
+ * unstake again; the only race is the operator unstaking just before our tx is included.
+ *
+ * Rules for the signer: run prepare immediately before signing; send through a private relay
+ * (e.g. Flashbots Protect); sign once; to speed it up, replace it with the SAME nonce, never a new one.
+ * If prepare finds deactivationEpoch != 0 (the operator unstaked first), do NOT send forceUnstake.
  *
  * Run:
- *   npx hardhat run scripts/migration/2b_forceUnstakeValidator.js --network <network>
+ *   node scripts/migration/2b_forceUnstakeValidator.js prepare --validator <id> [--impl <expected implementation>]
+ *   node scripts/migration/2b_forceUnstakeValidator.js verify --tx <hash>
+ *
+ * Add --fork to run against the local fork (FORK_RPC_URL).
  */
 
-const { ethers } = require("hardhat");
-require("dotenv").config();
+const lib = require("./lib");
+const { ethers, MAINNET, IFACE, expectEq, fmt } = lib;
 
-// ── Fill in before running ────────────────────────────────────────────────────
-
-const ADDRESSES = {
-  sepolia: {
-    STAKE_MANAGER_PROXY: "0xC0568572887E9687D7b57c1fC83332F8d1d38A6a",
-    GOVERNANCE_PROXY:    "0x1FFEdE2984dd324C0E63EdFfc44d5b6795826bfC",
-  },
-  mainnet: {
-    STAKE_MANAGER_PROXY: "0x65218A41Fb92637254B4f8c97448d3dF343A3064",
-    GOVERNANCE_PROXY:    "0xC476E20c2F7FA3B35aC242aBE71B59e902242f06",
-  },
-};
-
-// Validator to force-unstake (must be currently active)
-const VALIDATOR_ID = 0; // TODO: set validator ID
-
-// ─────────────────────────────────────────────────────────────────────────────
-
-async function main() {
-  if (VALIDATOR_ID === 0) {
-    throw new Error("Set VALIDATOR_ID before running");
+// read signers[] until it ends rather than trusting currentValidatorSetSize(): the two only
+// disagree after exactly the double unstake this script guards against
+async function signerList(sm, blockTag) {
+  const out = [];
+  for (let i = 0n; i < 1000n; i++) {
+    try {
+      out.push(await sm.signers(i, { blockTag }));
+    } catch (_) {
+      break;
+    }
   }
-
-  const network = await ethers.provider.getNetwork();
-  // resolve by chainId; a local fork (31337) follows the FORK_SEPOLIA flag used by hardhat.config.js
-  const CHAIN_NAMES = { 1: "mainnet", 11155111: "sepolia", 31337: process.env.FORK_SEPOLIA === "true" ? "sepolia" : "mainnet" };
-  const networkName = CHAIN_NAMES[Number(network.chainId)];
-  const addrs = ADDRESSES[networkName];
-  if (!addrs) throw new Error(`No address config for network: ${networkName}`);
-  if (addrs.GOVERNANCE_PROXY.startsWith("TODO")) {
-    throw new Error(`Fill in GOVERNANCE_PROXY for network: ${networkName}`);
-  }
-
-  const [deployer] = await ethers.getSigners();
-  console.log("Network:  ", networkName, `(chainId ${network.chainId})`);
-  console.log("Deployer: ", deployer.address);
-  console.log("Balance:  ", ethers.formatEther(await ethers.provider.getBalance(deployer.address)), "ETH\n");
-
-  const governance = await ethers.getContractAt("Governance", addrs.GOVERNANCE_PROXY);
-  const stakeManager = await ethers.getContractAt("StakeManager", addrs.STAKE_MANAGER_PROXY);
-
-  // Verify deployer is governance owner
-  const govOwner = await governance.owner();
-  if (govOwner.toLowerCase() !== deployer.address.toLowerCase()) {
-    throw new Error(`Governance owner is ${govOwner} — run with the correct private key`);
-  }
-
-  // ── Pre-flight checks ──────────────────────────────────────────────────────
-  console.log("── Pre-flight ──────────────────────────────────────────────────");
-
-  const isActive = await stakeManager.isValidator(VALIDATOR_ID);
-  console.log(`Validator ${VALIDATOR_ID} active: ${isActive}`);
-  if (!isActive) {
-    throw new Error(`Validator ${VALIDATOR_ID} is not active — already unstaked or invalid ID`);
-  }
-
-  const validator = await stakeManager.validators(VALIDATOR_ID);
-  console.log(`Validator ${VALIDATOR_ID} delegatedAmount: ${ethers.formatUnits(validator.delegatedAmount, 18)} BONE`);
-  console.log(`Validator ${VALIDATOR_ID} amount:          ${ethers.formatUnits(validator.amount, 18)} BONE`);
-  console.log(`Validator ${VALIDATOR_ID} signer:          ${validator.signer}`);
-
-  // ── Execute forceUnstake via governance ────────────────────────────────────
-  console.log("\n── Executing forceUnstake via governance ───────────────────────");
-
-  const calldata = stakeManager.interface.encodeFunctionData("forceUnstake", [VALIDATOR_ID]);
-  console.log("Encoded calldata:", calldata);
-  console.log(`Calling governance.update(stakeManager=${addrs.STAKE_MANAGER_PROXY}, data)`);
-
-  const feeData = await ethers.provider.getFeeData();
-  const gasPrice = (feeData.gasPrice * BigInt(12)) / BigInt(10);
-
-  let gasLimit;
-  try {
-    const estimate = await governance.update.estimateGas(addrs.STAKE_MANAGER_PROXY, calldata);
-    gasLimit = (estimate * BigInt(120)) / BigInt(100);
-    console.log(`Gas estimate: ${estimate.toString()} (using ${gasLimit.toString()} with buffer)`);
-  } catch (e) {
-    console.warn("Gas estimation failed, using fallback limit of 500,000:", e.shortMessage || e.message);
-    gasLimit = 500_000n;
-  }
-
-  const tx = await governance.update(addrs.STAKE_MANAGER_PROXY, calldata, { gasPrice, gasLimit });
-  console.log("Tx hash:", tx.hash);
-  const receipt = await tx.wait();
-  console.log("Gas used:", receipt.gasUsed.toString());
-
-  // ── Post-flight verification ───────────────────────────────────────────────
-  console.log("\n── Post-flight verification ────────────────────────────────────");
-
-  const isActiveAfter = await stakeManager.isValidator(VALIDATOR_ID);
-  console.log(`Validator ${VALIDATOR_ID} active after: ${isActiveAfter}`);
-  if (isActiveAfter) {
-    throw new Error(`Validator ${VALIDATOR_ID} is still active after forceUnstake — check transaction`);
-  }
-
-  const validatorAfter = await stakeManager.validators(VALIDATOR_ID);
-  console.log(`Validator ${VALIDATOR_ID} deactivationEpoch: ${validatorAfter.deactivationEpoch.toString()}`);
-
-  console.log(`\n✅ Done. Validator ${VALIDATOR_ID} has been force-unstaked.`);
-  console.log("Next: fill in DELEGATORS in 3_migrateDelegations.js and run Step 3.");
+  return out;
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
+async function prepare(ctx, args) {
+  const id = Number(args.validator);
+  if (!id) throw new Error("Pass --validator <id>");
+  const b = ctx.blockTag;
+
+  console.log(`── Pre-checks: forceUnstake(${id}) ─────────────────────────────`);
+  expectEq("StakeManager owner", await lib.crossCheck(ctx, "owner", (p, t) => lib.contracts(p).sm.owner({ blockTag: t })), MAINNET.ADMIN);
+  expectEq("Governance owner", await lib.crossCheck(ctx, "Governance owner", (p, t) => lib.contracts(p).gov.owner({ blockTag: t })), MAINNET.ADMIN);
+  const impl = await lib.crossCheck(ctx, "implementation", (p, t) => lib.contracts(p).sm.implementation({ blockTag: t }));
+  const allowed = [MAINNET.LIVE_IMPL, args.impl].filter(Boolean).map((a) => a.toLowerCase());
+  if (!allowed.includes(impl.toLowerCase())) throw new Error(`Implementation is ${impl}; expected ${allowed.join(" or ")} (pass --impl after the upgrade)`);
+  console.log(`  ✓ implementation: ${impl}`);
+
+  const state = await lib.crossCheck(ctx, `validator ${id}`, async (p, t) => {
+    const sm = lib.contracts(p).sm;
+    const [isVal, v, auction, epoch, cooldown] = await Promise.all([
+      sm.isValidator(id, { blockTag: t }),
+      sm.validators(id, { blockTag: t }),
+      sm.validatorAuction(id, { blockTag: t }),
+      sm.currentEpoch({ blockTag: t }),
+      sm.replacementCoolDown({ blockTag: t }),
+    ]);
+    return { isVal, deactivationEpoch: v.deactivationEpoch, status: v.status, signer: v.signer, amount: v.amount, delegated: v.delegatedAmount, reward: v.reward, bid: auction.amount, epoch, cooldown };
   });
+  expectEq("isValidator", state.isVal, true);
+  expectEq("deactivationEpoch (must be 0, else it is already unstaking: do NOT send)", state.deactivationEpoch, 0n);
+  expectEq("auction bid", state.bid, 0n);
+  if (!(state.cooldown > state.epoch)) throw new Error(`Auctions are open (replacementCoolDown ${state.cooldown} <= currentEpoch ${state.epoch}); run 2a_stopAuctions.js first`);
+  console.log(`  ✓ auctions stopped (replacementCoolDown ${state.cooldown} > currentEpoch ${state.epoch})`);
+
+  const { sm } = lib.contracts(ctx.provider);
+  const size = await sm.currentValidatorSetSize({ blockTag: b });
+  const signers = await signerList(sm, b);
+  expectEq("signers[] length matches currentValidatorSetSize", BigInt(signers.length), size);
+  const index = signers.findIndex((s) => s.toLowerCase() === state.signer.toLowerCase());
+  if (index < 0) throw new Error(`Signer ${state.signer} is not in signers[]; forceUnstake would drop signers[0] (${signers[0]})`);
+  console.log(`  ✓ signer ${state.signer} is signers[${index}] of ${size}`);
+
+  const total = await sm.currentValidatorSetTotalStake({ blockTag: b });
+  const stake = state.amount + state.delegated;
+  console.log(`  · removes ${fmt(stake)} BONE (self ${fmt(state.amount)}, delegated ${fmt(state.delegated)}) of ${fmt(total)} active stake`);
+  console.log(`  · pays ${fmt(state.reward)} BONE of accrued validator rewards to the validator's NFT owner`);
+
+  const inner = IFACE.stakeManager.encodeFunctionData("forceUnstake", [id]);
+  const tx = { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY, data: IFACE.governance.encodeFunctionData("update", [MAINNET.STAKE_MANAGER_PROXY, inner]) };
+  Object.assign(tx, await lib.simulate(ctx, tx));
+  console.log("  ✓ simulation from the admin succeeds");
+
+  await lib.writeCalldata(ctx, `force-unstake-${id}`, tx, `Governance.update(StakeManager, forceUnstake(${id}))`, {
+    validatorId: id,
+    before: { validatorSetSize: size, totalStake: total, validatorStake: stake, signers0: signers[0], rewardPaidToOwner: state.reward },
+  });
+  console.log("\nSign once, send through a private relay, and replace only with the same nonce.");
+  console.log(`After it is mined: node scripts/migration/2b_forceUnstakeValidator.js verify --tx <hash>${ctx.fork ? " --fork" : ""}`);
+}
+
+async function verify(ctx, args) {
+  if (!args.tx) throw new Error("Pass --tx <hash>");
+  const { tx, receipt, block, before } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY });
+  const outer = IFACE.governance.parseTransaction({ data: tx.data });
+  const inner = IFACE.stakeManager.parseTransaction({ data: outer.args.data });
+  if (inner?.name !== "forceUnstake") throw new Error("That transaction is not Governance.update(StakeManager, forceUnstake(id))");
+  const id = Number(inner.args[0]);
+  const { sm, info } = lib.contracts(ctx.provider);
+
+  console.log(`\n── Verify forceUnstake(${id}) ─────────────────────────────────`);
+  const inits = lib.parseLogs(receipt, IFACE.stakingInfo, MAINNET.STAKING_INFO).filter((e) => e.name === "UnstakeInit" && Number(e.args.validatorId) === id);
+  expectEq("UnstakeInit events in this tx", inits.length, 1);
+
+  // A second unstake (the operator's own, a re-sent tx, an auction) is the corruption case. unstake()
+  // needs deactivationEpoch == 0, so it can only come BEFORE ours: either in an earlier block (then the
+  // validator was already unstaking just before our block) or earlier in our own block.
+  const topic = IFACE.stakingInfo.getEvent("UnstakeInit").topicHash;
+  const idTopic = ethers.zeroPadValue(ethers.toBeHex(id), 32);
+  const inBlock = await ctx.provider.getLogs({ address: MAINNET.STAKING_INFO, topics: [topic, null, idTopic], fromBlock: block, toBlock: block });
+  expectEq(`UnstakeInit events for validator ${id} in block ${block}`, inBlock.length, 1);
+
+  const [vBefore, vAfter, epoch, isVal] = await Promise.all([
+    sm.validators(id, { blockTag: before }),
+    sm.validators(id, { blockTag: block }),
+    sm.currentEpoch({ blockTag: block }),
+    sm.isValidator(id, { blockTag: block }),
+  ]);
+  expectEq("deactivationEpoch was 0 right before this block (not unstaked twice)", vBefore.deactivationEpoch, 0n);
+  expectEq("isValidator after", isVal, false);
+  expectEq("deactivationEpoch == currentEpoch", vAfter.deactivationEpoch, epoch);
+
+  const [sizeBefore, sizeAfter, totalBefore, totalAfter] = await Promise.all([
+    sm.currentValidatorSetSize({ blockTag: before }),
+    sm.currentValidatorSetSize({ blockTag: block }),
+    sm.currentValidatorSetTotalStake({ blockTag: before }),
+    sm.currentValidatorSetTotalStake({ blockTag: block }),
+  ]);
+  expectEq("validator count dropped by exactly 1", sizeAfter, sizeBefore - 1n);
+  expectEq("active stake dropped by exactly the validator's stake", totalAfter, totalBefore - (vBefore.amount + vBefore.delegatedAmount));
+
+  const signersBefore = await signerList(sm, before);
+  const signersAfter = await signerList(sm, block);
+  const removed = vBefore.signer.toLowerCase();
+  const expected = signersBefore.filter((s) => s.toLowerCase() !== removed).map((s) => s.toLowerCase()).sort();
+  const sameSet = JSON.stringify(signersAfter.map((s) => s.toLowerCase()).sort()) === JSON.stringify(expected);
+  expectEq(`signer set is the previous ${signersBefore.length} minus this validator's signer`, sameSet, true);
+  console.log(`  · L1 nonce for validator ${id} is now ${await info.validatorNonce(id, { blockTag: block })}`);
+
+  await lib.heimdallGate(ctx, [id]);
+  console.log(`\n✅ forceUnstake(${id}) verified on L1. Heimdall follows in ~3-5 checkpoints: re-run the gate before migrating.`);
+}
+
+async function main() {
+  const args = lib.parseArgs();
+  const [command] = args._;
+  if (!["prepare", "verify"].includes(command)) throw new Error("Usage: 2b_forceUnstakeValidator.js prepare|verify [options]");
+  const ctx = await lib.connect({ fork: Boolean(args.fork) });
+  if (command === "prepare") await prepare(ctx, args);
+  else await verify(ctx, args);
+}
+
+main().catch((e) => {
+  console.error(`\nABORTED: ${e.message}`);
+  process.exit(1);
+});
