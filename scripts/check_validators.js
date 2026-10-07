@@ -3,7 +3,10 @@
 
 const { ethers } = require("ethers");
 
-const RPC = "https://mainnet.infura.io/v3/ebea9fbdc96a4a70b76fb3724097e8f7";
+require("dotenv").config();
+
+const RPC = process.env.MAINNET_RPC_URL;
+if (!RPC) throw new Error("Set MAINNET_RPC_URL in .env");
 const STAKE_MANAGER = "0x65218A41Fb92637254B4f8c97448d3dF343A3064";
 
 const ALIVE = [1, 3, 5, 7, 8, 11];
