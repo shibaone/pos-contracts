@@ -7,8 +7,10 @@
  * An address with positions on several sources always goes to a single target, and goes to a
  * target it already delegates to when that keeps the balance.
  *
- * Writes allocation.json (read by 3_migrateDelegations.js) and allocation.csv (for review).
- * Regenerate right before the migration: delegators can move or exit during the notice period.
+ * Writes allocation.json (read by 3_migrateDelegations.js) and allocation.csv (for review), and
+ * prints the allocation hash. Regenerate right before the migration: delegators can move or exit
+ * during the notice period. Once the allocation is reviewed, freeze it by setting
+ * REVIEWED_ALLOCATION_HASH in lib.js to that hash in a reviewed commit; step 3 refuses anything else.
  *
  * Run:
  *   node scripts/migration/0b_buildAllocation.js --from 9,10 --to 11,3,2,4,5 [--block <n>] [--fork]
@@ -203,6 +205,8 @@ async function main() {
     sources: sourceInfo,
     targets: summary,
     goalWei: goal,
+    // informational: step 3 recomputes the hash from the rows and never trusts this field
+    allocationHash: lib.allocationHash(rows),
     rows,
   };
   fs.writeFileSync(out, lib.json(result));
@@ -218,6 +222,8 @@ async function main() {
   const spread = afters.reduce((m, x) => (x > m ? x : m), 0n) - afters.reduce((m, x) => (x < m ? x : m), afters[0]);
   console.log(`\nSpread between targets: ${fmt(spread)} BONE`);
   console.log(`Written: ${path.relative(process.cwd(), out)} and ${path.relative(process.cwd(), out.replace(/\.json$/, ".csv"))}`);
+  console.log(`\nAllocation hash: ${result.allocationHash}`);
+  console.log("After review, freeze it: set REVIEWED_ALLOCATION_HASH in scripts/migration/lib.js to this hash in a reviewed commit.");
 }
 
 main().catch((e) => {

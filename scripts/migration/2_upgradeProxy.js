@@ -7,12 +7,15 @@
  * verify:  after the admin has sent it, checks the mined tx: new implementation and codehash,
  *          and owner, epoch, validator count and total stake unchanged across the upgrade.
  *
+ * The codehash is not an argument: the upgrade requires MAINNET.REVIEWED_IMPL_CODEHASH and the
+ * rollback MAINNET.LIVE_IMPL_CODEHASH (lib.js). Only a fork run may pass --codehash to try another build.
+ *
  * Upgrade:
- *   node scripts/migration/2_upgradeProxy.js prepare --impl <new impl> --codehash <pinned runtime codehash>
- *   node scripts/migration/2_upgradeProxy.js verify --tx <hash>
+ *   node scripts/migration/2_upgradeProxy.js prepare --impl <new impl>
+ *   node scripts/migration/2_upgradeProxy.js verify --tx <hash> [--file <calldata file>]
  * Rollback to the pre-migration implementation (after the last batch):
  *   node scripts/migration/2_upgradeProxy.js prepare --rollback
- *   node scripts/migration/2_upgradeProxy.js verify --tx <hash>
+ *   node scripts/migration/2_upgradeProxy.js verify --tx <hash> [--file <calldata file>]
  *
  * Add --fork to run against the local fork (FORK_RPC_URL).
  */
@@ -37,9 +40,9 @@ async function hasForceFunctions(ctx, blockTag) {
 async function prepare(ctx, args) {
   const rollback = Boolean(args.rollback);
   const newImpl = rollback ? MAINNET.LIVE_IMPL : args.impl;
-  const pinned = rollback ? MAINNET.LIVE_IMPL_CODEHASH : args.codehash;
   if (!newImpl || !ethers.isAddress(newImpl)) throw new Error("Pass --impl <address> (or --rollback)");
-  if (!pinned || !/^0x[0-9a-fA-F]{64}$/.test(pinned)) throw new Error("Pass --codehash <runtime codehash pinned at review>");
+  if (rollback && args.codehash) throw new Error("The rollback always expects LIVE_IMPL_CODEHASH; drop --codehash");
+  const pinned = rollback ? MAINNET.LIVE_IMPL_CODEHASH : lib.expectedImplCodehash(ctx, args);
 
   console.log(`── Pre-checks (${rollback ? "rollback" : "upgrade"}) ─────────────────────────────────────`);
   const owner = await lib.crossCheck(ctx, "proxy owner", (p, b) => lib.contracts(p).sm.owner({ blockTag: b }));
@@ -80,7 +83,7 @@ async function prepare(ctx, args) {
 
 async function verify(ctx, args) {
   if (!args.tx) throw new Error("Pass --tx <hash>");
-  const { tx, block, before } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: SM });
+  const { tx, block, before } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: SM, file: args.file });
   const call = IFACE.stakeManager.parseTransaction({ data: tx.data });
   if (!call || call.name !== "updateImplementation") throw new Error("That transaction is not updateImplementation()");
   const newImpl = call.args[0];
@@ -90,9 +93,7 @@ async function verify(ctx, args) {
   console.log(`\n── Verify ${rollback ? "rollback" : "upgrade"} ───────────────────────────────────────`);
   expectEq("implementation()", await sm.implementation({ blockTag: block }), newImpl);
   const codehash = ethers.keccak256(await ctx.provider.getCode(newImpl, block));
-  if (rollback) expectEq("implementation codehash", codehash, MAINNET.LIVE_IMPL_CODEHASH);
-  else if (args.codehash) expectEq("implementation codehash", codehash, args.codehash);
-  else console.log(`  · implementation codehash ${codehash} (pass --codehash to compare with the pinned value)`);
+  expectEq("implementation codehash", codehash, rollback ? MAINNET.LIVE_IMPL_CODEHASH : lib.expectedImplCodehash(ctx, args));
 
   for (const [label, read] of [
     ["owner()", (b) => sm.owner({ blockTag: b })],

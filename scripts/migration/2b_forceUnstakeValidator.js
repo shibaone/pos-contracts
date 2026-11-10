@@ -8,7 +8,11 @@
  *   - prepare refuses unless the validator is active with deactivationEpoch == 0, its signer is in
  *     the signer list, it has no auction bid and auctions are stopped (run 2a first);
  *   - verify confirms exactly one UnstakeInit for the validator and that the validator count and
- *     total stake dropped exactly once.
+ *     total stake dropped exactly once. On mainnet it only reports verified once the Heimdall gate
+ *     for the validator is green (3-5 checkpoints later); until then it exits with code 2.
+ *
+ * prepare also refuses unless StakeManager's BONE covers every queued exit, the validator rewards
+ * forceUnstake pays out, and MIN_MARGIN_BONE.
  *
  * The operator's own unstake() requires deactivationEpoch == 0, so once forceUnstake lands it cannot
  * unstake again; the only race is the operator unstaking just before our tx is included.
@@ -19,7 +23,7 @@
  *
  * Run:
  *   node scripts/migration/2b_forceUnstakeValidator.js prepare --validator <id> [--impl <expected implementation>]
- *   node scripts/migration/2b_forceUnstakeValidator.js verify --tx <hash>
+ *   node scripts/migration/2b_forceUnstakeValidator.js verify --tx <hash> [--file <calldata file>]
  *
  * Add --fork to run against the local fork (FORK_RPC_URL).
  */
@@ -83,6 +87,7 @@ async function prepare(ctx, args) {
   const stake = state.amount + state.delegated;
   console.log(`  · removes ${fmt(stake)} BONE (self ${fmt(state.amount)}, delegated ${fmt(state.delegated)}) of ${fmt(total)} active stake`);
   console.log(`  · pays ${fmt(state.reward)} BONE of accrued validator rewards to the validator's NFT owner`);
+  await lib.requireBoneCover(ctx, state.reward, "validator rewards forceUnstake pays");
 
   const inner = IFACE.stakeManager.encodeFunctionData("forceUnstake", [id]);
   const tx = { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY, data: IFACE.governance.encodeFunctionData("update", [MAINNET.STAKE_MANAGER_PROXY, inner]) };
@@ -99,7 +104,7 @@ async function prepare(ctx, args) {
 
 async function verify(ctx, args) {
   if (!args.tx) throw new Error("Pass --tx <hash>");
-  const { tx, receipt, block, before } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY });
+  const { tx, receipt, block, before } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY, file: args.file });
   const outer = IFACE.governance.parseTransaction({ data: tx.data });
   const inner = IFACE.stakeManager.parseTransaction({ data: outer.args.data });
   if (inner?.name !== "forceUnstake") throw new Error("That transaction is not Governance.update(StakeManager, forceUnstake(id))");
@@ -145,8 +150,7 @@ async function verify(ctx, args) {
   expectEq(`signer set is the previous ${signersBefore.length} minus this validator's signer`, sameSet, true);
   console.log(`  · L1 nonce for validator ${id} is now ${await info.validatorNonce(id, { blockTag: block })}`);
 
-  await lib.heimdallGate(ctx, [id]);
-  console.log(`\n✅ forceUnstake(${id}) verified on L1. Heimdall follows in ~3-5 checkpoints: re-run the gate before migrating.`);
+  await lib.finishVerify(ctx, [id], `forceUnstake(${id})`);
 }
 
 async function main() {

@@ -3,18 +3,27 @@
  *
  * None of these scripts sign a mainnet transaction. Each admin call is checked, simulated
  * from the admin wallet and written to a calldata file under scripts/migration/out/. The
- * admin reviews it and signs it on the hardware wallet; after it is mined, the same script
- * re-checks the result with `verify --tx <hash>`. forkExecute.js replays the same calldata
- * files on a local fork, so a rehearsal runs exactly what will be signed.
+ * admin reviews it and signs it on the hardware wallet with exactly the nonce in the file,
+ * before its expiry block; after it is mined, the same script re-checks the result with
+ * `verify --tx <hash> --file <calldata file>`. forkExecute.js replays the same calldata files
+ * on a local fork, so a rehearsal runs exactly what will be signed.
+ *
+ * A calldata file pins the signer nonce, so the same file can never be mined twice: a second
+ * send with that nonce only replaces the first. Files written by one prepare run get consecutive
+ * nonces; send them in order, and re-run prepare if any other admin transaction goes in between.
+ *
+ * On mainnet, a step that changes validator stake (2b, 3) only counts as verified when the
+ * Heimdall gate is green for the validators it touched; otherwise verify exits with code 2.
  *
  * Environment (.env):
- *   MAINNET_RPC_URL   primary RPC (required unless --fork)
- *   SECOND_RPC_URL    independent provider; critical reads must match it (required on mainnet
- *                     unless ALLOW_SINGLE_RPC=1)
- *   FORK_RPC_URL      local anvil/hardhat fork for --fork (default http://127.0.0.1:8545)
- *   HEIMDALL_API      Heimdall REST endpoint for the Heimdall gate
- *   ETHERSCAN_API_KEY optional, speeds up event scans in 0b_buildAllocation.js
- *   MAX_FEE_GWEI      max fee printed with each calldata file (default 30)
+ *   MAINNET_RPC_URL     primary RPC (required unless --fork)
+ *   SECOND_RPC_URL      independent provider; critical reads must match it (required on mainnet
+ *                       unless ALLOW_SINGLE_RPC=1)
+ *   FORK_RPC_URL        local anvil/hardhat fork for --fork (default http://127.0.0.1:8545)
+ *   HEIMDALL_API        Heimdall REST endpoint for the Heimdall gate (required to verify on mainnet)
+ *   ETHERSCAN_API_KEY   optional, speeds up event scans in 0b_buildAllocation.js
+ *   MAX_FEE_GWEI        max fee printed with each calldata file (default 30)
+ *   MIN_MARGIN_BONE     BONE StakeManager must hold beyond everything it owes (default 50000)
  */
 
 const fs = require("fs");
@@ -32,7 +41,16 @@ const MAINNET = {
   // implementation live before this operation; the proxy goes back to it when the migration is done
   LIVE_IMPL: "0x269C0ebb7a39995dB531Ccd61D015e431530b87A",
   LIVE_IMPL_CODEHASH: "0x8c1e6ae90322d08be42e195f31cad8d23fd2d224858132c9fbef89f99114c908",
+  // runtime codehash of the reviewed migration build (StakeManager.sol as of 8dee45da, solc 0.5.17,
+  // optimizer 200). Changing the build means changing this constant in a reviewed commit.
+  REVIEWED_IMPL_CODEHASH: "0xe75e716f3f6bc6a8396f95c2798b0f915b72225004066babf0ef15ea9096ba06",
+  // allocationHash() of the reviewed allocation. 0b_buildAllocation.js prints it; once the allocation
+  // is reviewed, set it here in a reviewed commit. Step 3 refuses to run on mainnet without it.
+  REVIEWED_ALLOCATION_HASH: "",
 };
+
+// how long a calldata file stays valid, in blocks (~12 s each)
+const EXPIRY_BLOCKS = { short: 300, session: 3600 };
 
 // EIP-7825 caps a transaction at 2^24 gas; stay clearly below it
 const GAS_LIMIT_MAX = 16_000_000n;
@@ -49,6 +67,7 @@ const ABI = {
     "function isValidator(uint256) view returns (bool)",
     "function currentValidatorSetSize() view returns (uint256)",
     "function currentValidatorSetTotalStake() view returns (uint256)",
+    "function NFTCounter() view returns (uint256)",
     "function signers(uint256) view returns (address)",
     "function signerToValidator(address) view returns (uint256)",
     "function validators(uint256) view returns (uint256 amount, uint256 reward, uint256 activationEpoch, uint256 deactivationEpoch, uint256 jailTime, address signer, address contractAddress, uint8 status, uint256 commissionRate, uint256 lastCommissionUpdate, uint256 delegatorsReward, uint256 delegatedAmount, uint256 initialRewardPerStake)",
@@ -298,17 +317,37 @@ async function simulate(ctx, tx) {
 
 const OUT_DIR = path.join(__dirname, "out");
 
+// The signer nonce for the next calldata file of this run. The first file takes the nonce at the
+// pinned block, which must also be the latest and the pending nonce (nothing in flight, nothing
+// mined since the reads); each further file of the same run takes the next one.
+async function nextNonce(ctx, from) {
+  if (ctx.nonce === undefined) {
+    const at = await crossCheck(ctx, "signer nonce", (p, t) => p.getTransactionCount(from, t));
+    const [latest, pending] = await Promise.all([ctx.provider.getTransactionCount(from, "latest"), ctx.provider.getTransactionCount(from, "pending")]);
+    if (latest !== at || pending !== at) {
+      throw new Error(`${from} nonce is ${at} at block ${ctx.blockTag}, ${latest} latest, ${pending} pending: a transaction from it is in flight or was just mined; wait for it, then re-run prepare`);
+    }
+    ctx.nonce = at;
+  }
+  return ctx.nonce++;
+}
+
 /**
  * Writes one transaction for the hardware wallet to scripts/migration/out/ and prints it with
- * its decoded call, so the signer and a second reviewer can check it independently.
+ * its decoded call, so the signer and a second reviewer can check it independently. The file pins
+ * the signer nonce and an expiry block (EXPIRY_BLOCKS[expiry] after the reads).
  */
-async function writeCalldata(ctx, name, tx, decoded, meta = {}) {
+async function writeCalldata(ctx, name, tx, decoded, meta = {}, { expiry = "short" } = {}) {
   const fees = await feeSuggestion(ctx.provider);
+  const nonce = await nextNonce(ctx, tx.from);
   const record = {
     network: ctx.label,
+    fork: ctx.fork,
     chainId: Number(ctx.chainId),
     simulatedAtBlock: ctx.blockTag,
+    expiresAtBlock: ctx.blockTag + EXPIRY_BLOCKS[expiry],
     from: tx.from,
+    nonce,
     to: tx.to,
     value: "0",
     data: tx.data,
@@ -326,23 +365,65 @@ async function writeCalldata(ctx, name, tx, decoded, meta = {}) {
 
   console.log(`\n── Transaction for the hardware wallet ${ctx.fork ? "(FORK REHEARSAL)" : ""}──────────────`);
   console.log(`  signer     ${tx.from}`);
+  console.log(`  nonce      ${nonce}  (sign with exactly this nonce)`);
   console.log(`  to         ${tx.to}`);
   console.log(`  value      0`);
   console.log(`  call       ${decoded}`);
   console.log(`  gas limit  ${tx.gasLimit}  (estimate ${tx.estimate}, +20%)`);
   console.log(`  max fee    ${record.maxFeePerGasGwei} gwei, priority ${record.maxPriorityFeePerGasGwei} gwei${fees.capped ? "  (capped by MAX_FEE_GWEI)" : ""}`);
   console.log(`  data       ${tx.data}`);
+  console.log(`  expires    after block ${record.expiresAtBlock}; do not sign it later, re-run prepare instead`);
   console.log(`  file       ${path.relative(process.cwd(), file)}`);
   return file;
 }
 
-/** Loads a mined tx and its receipt and checks it succeeded and was sent by `from` to `to`. */
-async function loadMinedTx(ctx, hash, { from, to }) {
+/**
+ * Finds the calldata file a mined tx was sent from: same chain, signer, target, data and nonce.
+ * With `file`, only that file is considered.
+ */
+function findCalldataRecord(ctx, tx, file) {
+  const files = file
+    ? [file]
+    : fs.existsSync(OUT_DIR)
+      ? fs.readdirSync(OUT_DIR).filter((f) => f.endsWith(".json")).sort().reverse().map((f) => path.join(OUT_DIR, f))
+      : [];
+  const sameCall = [];
+  for (const f of files) {
+    let r;
+    try {
+      r = JSON.parse(fs.readFileSync(f, "utf8"));
+    } catch (e) {
+      if (file) throw new Error(`Cannot read ${file}: ${e.message}`);
+      continue;
+    }
+    if (r.chainId !== Number(ctx.chainId) || r.fork !== ctx.fork || r.nonce === undefined) continue;
+    if (r.from?.toLowerCase() !== tx.from.toLowerCase() || r.to?.toLowerCase() !== tx.to?.toLowerCase() || r.data?.toLowerCase() !== tx.data.toLowerCase()) continue;
+    sameCall.push({ file: f, record: r });
+  }
+  const match = sameCall.find((c) => c.record.nonce === tx.nonce);
+  if (match) return match;
+  if (sameCall.length) {
+    throw new Error(`Sent with nonce ${tx.nonce}, but ${path.relative(process.cwd(), sameCall[0].file)} pins nonce ${sameCall[0].record.nonce} for this call`);
+  }
+  throw new Error(`${file ? path.relative(process.cwd(), file) : `No calldata file in ${path.relative(process.cwd(), OUT_DIR)}`} does not match this transaction (chain, signer, target, data and nonce ${tx.nonce}): it was not sent from a prepared file`);
+}
+
+/**
+ * Loads a mined tx and its receipt and checks it succeeded, was sent by `from` to `to`, and came
+ * from a calldata file with the nonce that file pins, before the file's expiry block.
+ */
+async function loadMinedTx(ctx, hash, { from, to, file }) {
   const [tx, receipt] = await Promise.all([ctx.provider.getTransaction(hash), ctx.provider.getTransactionReceipt(hash)]);
   if (!tx || !receipt) throw new Error(`Transaction ${hash} not found or not mined yet`);
   console.log(`Transaction ${hash}: block ${receipt.blockNumber}, status ${receipt.status === 1 ? "success" : "REVERTED"}, gas used ${receipt.gasUsed}`);
   if (from) expectEq("sent by", tx.from, from);
   if (to) expectEq("sent to", tx.to, to);
+  const { file: source, record } = findCalldataRecord(ctx, tx, file);
+  console.log(`  ✓ sent from ${path.relative(process.cwd(), source)} with the nonce it pins (${record.nonce})`);
+  if (receipt.blockNumber > record.expiresAtBlock) {
+    throw new Error(`Mined at block ${receipt.blockNumber}, after the file expired at block ${record.expiresAtBlock}: it was signed from a stale file; investigate before going on`);
+  }
+  console.log(`  ✓ mined at block ${receipt.blockNumber}, before the file's expiry block ${record.expiresAtBlock}`);
   if (receipt.status !== 1) {
     let reason = "unknown";
     try {
@@ -352,7 +433,97 @@ async function loadMinedTx(ctx, hash, { from, to }) {
     }
     throw new Error(`Transaction reverted: ${reason}`);
   }
-  return { tx, receipt, block: receipt.blockNumber, before: receipt.blockNumber - 1 };
+  return { tx, receipt, record, file: source, block: receipt.blockNumber, before: receipt.blockNumber - 1 };
+}
+
+// ── pinned values ─────────────────────────────────────────────────────────────
+
+/** The codehash the migration build must have. Only a fork run may use another one (--codehash). */
+function expectedImplCodehash(ctx, args) {
+  const reviewed = MAINNET.REVIEWED_IMPL_CODEHASH;
+  if (!args.codehash || args.codehash.toLowerCase() === reviewed.toLowerCase()) return reviewed;
+  if (!ctx.fork) throw new Error(`--codehash cannot replace the reviewed codehash ${reviewed} on mainnet; change REVIEWED_IMPL_CODEHASH in a reviewed commit`);
+  console.log(`  ⚠️  fork run: expecting --codehash ${args.codehash} instead of the reviewed ${reviewed}`);
+  return args.codehash;
+}
+
+/**
+ * keccak256 over the rows that matter (address, from, to, stake in wei), one "address,from,to,wei"
+ * line each, sorted by from, to and address. JSON and CSV of the same allocation hash the same.
+ */
+function allocationHash(rows) {
+  const lines = rows
+    .map((r) => ({ a: ethers.getAddress(r.address), from: Number(r.from), to: Number(r.to), wei: BigInt(r.stakeWei) }))
+    .sort((x, y) => x.from - y.from || x.to - y.to || x.a.toLowerCase().localeCompare(y.a.toLowerCase()))
+    .map((r) => `${r.a},${r.from},${r.to},${r.wei}\n`);
+  return ethers.keccak256(ethers.toUtf8Bytes(lines.join("")));
+}
+
+/** Fails unless the allocation hashes to the reviewed value. Only a fork run may skip or replace it. */
+function requireReviewedAllocation(ctx, args, rows) {
+  const hash = allocationHash(rows);
+  const reviewed = MAINNET.REVIEWED_ALLOCATION_HASH;
+  if (!ctx.fork) {
+    if (args["allocation-hash"] && args["allocation-hash"].toLowerCase() !== reviewed.toLowerCase()) {
+      throw new Error("--allocation-hash cannot replace REVIEWED_ALLOCATION_HASH on mainnet");
+    }
+    if (!reviewed) throw new Error(`REVIEWED_ALLOCATION_HASH is not set; once this allocation (${hash}) is reviewed, set it in lib.js in a reviewed commit`);
+    expectEq("allocation hash (reviewed)", hash, reviewed);
+    return hash;
+  }
+  const expected = args["allocation-hash"] || reviewed;
+  if (expected) expectEq("allocation hash", hash, expected);
+  else console.log(`  · allocation hash ${hash} (not pinned: fork run)`);
+  return hash;
+}
+
+// ── state the migration depends on ────────────────────────────────────────────
+
+/**
+ * Fails unless auctions are stopped and none of `ids` has an auction bid, at ctx.blockTag.
+ * A bid on a validator touched by the migration could change its stake or signer mid-way.
+ */
+async function requireNoBids(ctx, ids) {
+  const state = await crossCheck(ctx, `auctions for ${ids.join(",")}`, async (p, t) => {
+    const sm = contracts(p).sm;
+    const [epoch, cooldown, bids] = await Promise.all([
+      sm.currentEpoch({ blockTag: t }),
+      sm.replacementCoolDown({ blockTag: t }),
+      Promise.all(ids.map(async (id) => ({ id, ...(await sm.validatorAuction(id, { blockTag: t })).toObject() }))),
+    ]);
+    return { epoch, cooldown, bids: bids.filter((b) => b.amount > 0n).map((b) => ({ id: b.id, amount: b.amount, user: b.user })) };
+  });
+  if (!(state.cooldown > state.epoch)) throw new Error(`Auctions are open at block ${ctx.blockTag} (replacementCoolDown ${state.cooldown} <= currentEpoch ${state.epoch}); run 2a_stopAuctions.js first`);
+  if (state.bids.length) throw new Error(`Auction bids at block ${ctx.blockTag}: ${state.bids.map((b) => `validator ${b.id}: ${fmt(b.amount)} BONE by ${b.user}`).join("; ")}`);
+  console.log(`  ✓ auctions stopped and no bid on validators ${ids.join(", ")} at block ${ctx.blockTag}`);
+}
+
+/**
+ * Fails unless StakeManager's BONE covers every queued exit (the withdrawPool of every validator's
+ * share contract), plus `paysOut` (what this step pays), plus MIN_MARGIN_BONE.
+ */
+async function requireBoneCover(ctx, paysOut, label) {
+  const { exits, balance, validatorRewards } = await crossCheck(ctx, "StakeManager BONE and queued exits", async (p, t) => {
+    const c = contracts(p);
+    const count = Number(await c.sm.NFTCounter({ blockTag: t }));
+    const ids = Array.from({ length: Math.max(count - 1, 0) }, (_, i) => i + 1);
+    const rows = await mapLimit(ids, 4, async (id) => {
+      const v = await c.sm.validators(id, { blockTag: t });
+      const pool = v.contractAddress === ethers.ZeroAddress ? 0n : await c.share(v.contractAddress).withdrawPool({ blockTag: t });
+      return { pool, reward: v.reward };
+    });
+    return {
+      exits: rows.reduce((s, r) => s + r.pool, 0n),
+      validatorRewards: rows.reduce((s, r) => s + r.reward, 0n),
+      balance: await c.bone.balanceOf(MAINNET.STAKE_MANAGER_PROXY, { blockTag: t }),
+    };
+  });
+  const margin = ethers.parseUnits(process.env.MIN_MARGIN_BONE || "50000", 18);
+  const need = exits + paysOut + margin;
+  console.log(`  · StakeManager BONE ${fmt(balance)}; needs ${fmt(need)} = queued exits ${fmt(exits)} + ${label} ${fmt(paysOut)} + margin ${fmt(margin)}`);
+  console.log(`    (validators' own unclaimed rewards, not part of the requirement: ${fmt(validatorRewards)})`);
+  if (balance < need) throw new Error(`StakeManager holds ${fmt(balance)} BONE, needs at least ${fmt(need)}; refill it first`);
+  console.log("  ✓ StakeManager BONE covers the queued exits, this step's payouts and the margin");
 }
 
 // eth_getLogs in fixed windows: public RPCs refuse wide ranges, and a fork forwards to them
@@ -423,6 +594,27 @@ async function heimdallGate(ctx, ids) {
   return { ok, rows };
 }
 
+/**
+ * Ends a verify run whose L1 checks all passed. On mainnet the step only counts as verified when
+ * the Heimdall gate is green for `ids`; a skipped or red gate prints NOT VERIFIED and sets exit
+ * code 2. A fork has no Heimdall following it, so there the L1 checks are the verdict.
+ */
+async function finishVerify(ctx, ids, what) {
+  if (ctx.fork) {
+    console.log(`\n✅ ${what} verified on the fork (L1 only: no Heimdall follows a fork).`);
+    return true;
+  }
+  const { ok } = await heimdallGate(ctx, ids);
+  if (ok === true) {
+    console.log(`\n✅ ${what} verified (L1 and Heimdall).`);
+    return true;
+  }
+  console.log(`\n⛔ ${what}: L1 checks passed, but NOT VERIFIED: the Heimdall gate ${ok === null ? "was skipped (HEIMDALL_API not set)" : "is not green"}.`);
+  console.log(`   ${ok === null ? "Set HEIMDALL_API and re-run this verify" : "Re-run this verify once Heimdall has caught up"}. Do not start the next step before it passes.`);
+  process.exitCode = 2;
+  return false;
+}
+
 // ── allocation file ───────────────────────────────────────────────────────────
 
 /**
@@ -486,6 +678,7 @@ module.exports = {
   ABI,
   IFACE,
   GAS_LIMIT_MAX,
+  EXPIRY_BLOCKS,
   OUT_DIR,
   ethers,
   fmt,
@@ -503,9 +696,15 @@ module.exports = {
   simulate,
   writeCalldata,
   loadMinedTx,
+  expectedImplCodehash,
+  allocationHash,
+  requireReviewedAllocation,
+  requireNoBids,
+  requireBoneCover,
   getLogsChunked,
   parseLogs,
   heimdallGate,
+  finishVerify,
   readAllocation,
   validateAllocation,
 };

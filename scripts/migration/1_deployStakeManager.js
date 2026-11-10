@@ -3,21 +3,21 @@
  *
  * Deploys the StakeManager build with forceMigrateDelegation / forceMigrateMultipleDelegations.
  * Deploying an implementation needs no special rights: use any throwaway funded key in
- * PRIVATE_KEY, never the admin's. The script prints the runtime codehash; the admin compares it
- * with the hash pinned at review before signing the upgrade (2_upgradeProxy.js --codehash).
+ * PRIVATE_KEY, never the admin's. It refuses to deploy unless the compiled runtime codehash is
+ * MAINNET.REVIEWED_IMPL_CODEHASH (lib.js), the same value 2_upgradeProxy.js requires.
  *
  * Run:
  *   npx hardhat run scripts/migration/1_deployStakeManager.js --network mainnet     (MAINNET_RPC_URL, PRIVATE_KEY)
  *   npx hardhat run scripts/migration/1_deployStakeManager.js --network localhost   (fork rehearsal)
  *
- * Env: EXPECTED_CODEHASH to fail unless the compiled build matches the reviewed one,
+ * Env: EXPECTED_CODEHASH (not on mainnet) to rehearse another build on a fork,
  *      MAX_FEE_GWEI (default 30) cap on the deployment fee.
  */
 
 const { ethers, artifacts, network: hhNetwork } = require("hardhat");
-require("dotenv").config();
+const { MAINNET } = require("./lib");
 
-const ADMIN = "0xBab4F3e701F6d2e009Af3C7f1eF2e7dD68225E96";
+const ADMIN = MAINNET.ADMIN;
 const EIP170_LIMIT = 24576;
 
 async function main() {
@@ -40,9 +40,15 @@ async function main() {
   if (runtimeSize > EIP170_LIMIT) {
     throw new Error("StakeManager exceeds the EIP-170 contract size limit — deployment would fail");
   }
-  if (process.env.EXPECTED_CODEHASH && process.env.EXPECTED_CODEHASH.toLowerCase() !== builtCodehash.toLowerCase()) {
-    throw new Error(`Compiled codehash ${builtCodehash} does not match EXPECTED_CODEHASH ${process.env.EXPECTED_CODEHASH}`);
+  // a fork reports chainId 1 too, so only the local network names may override
+  if (process.env.EXPECTED_CODEHASH && !["localhost", "hardhat"].includes(hhNetwork.name)) {
+    throw new Error("EXPECTED_CODEHASH cannot replace the reviewed codehash on mainnet; change REVIEWED_IMPL_CODEHASH in a reviewed commit");
   }
+  const expected = process.env.EXPECTED_CODEHASH || MAINNET.REVIEWED_IMPL_CODEHASH;
+  if (expected.toLowerCase() !== builtCodehash.toLowerCase()) {
+    throw new Error(`Compiled codehash ${builtCodehash} is not the reviewed ${expected}; build from the reviewed commit`);
+  }
+  console.log(`  ✓ matches the ${process.env.EXPECTED_CODEHASH ? "EXPECTED_CODEHASH" : "reviewed"} codehash`);
 
   const StakeManager = await ethers.getContractFactory("StakeManager");
   const fee = await ethers.provider.getFeeData();
@@ -64,8 +70,8 @@ async function main() {
   }
   console.log("✅ StakeManager deployed:", implAddress);
   console.log("   Runtime codehash:   ", deployedCodehash);
-  console.log("\nNext: verify it on Sourcify, compare the codehash with the reviewed one, then:");
-  console.log(`  node scripts/migration/2_upgradeProxy.js prepare --impl ${implAddress} --codehash ${deployedCodehash}${hhNetwork.name === "mainnet" ? "" : " --fork"}`);
+  console.log("\nNext: verify it on Sourcify, then:");
+  console.log(`  node scripts/migration/2_upgradeProxy.js prepare --impl ${implAddress}${hhNetwork.name === "mainnet" ? "" : ` --fork${process.env.EXPECTED_CODEHASH ? ` --codehash ${deployedCodehash}` : ""}`}`);
 }
 
 main()

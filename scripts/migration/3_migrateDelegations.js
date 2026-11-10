@@ -1,27 +1,35 @@
 /**
  * Step 3: Migrate delegations from closed validators, driven by one allocation file
  *
- * prepare: reads allocation.json (0b_buildAllocation.js), re-checks every row against the chain,
- *          dry-runs each delegator's move on its own, checks StakeManager holds enough BONE for the
- *          rewards the batches pay out, and writes one calldata file per batch for the hardware
- *          wallet. Nothing is signed here. Rows already moved are skipped, so prepare can be re-run
- *          at any point to resume.
- * verify:  checks one mined batch: every delegator moved exactly its stake to the planned target,
- *          nothing left on the source, no DelegationForceMigrationFailed, validator totals moved by
- *          the same amount, and the Heimdall gate for both validators. Run it before the next batch.
+ * prepare: reads allocation.json (0b_buildAllocation.js), requires its hash to be the reviewed one
+ *          (MAINNET.REVIEWED_ALLOCATION_HASH), re-checks every row against the chain, dry-runs each
+ *          delegator's move on its own, and writes one calldata file per batch for the hardware
+ *          wallet, each carrying the allocation hash, its own nonce and an expiry block. Nothing is
+ *          signed here. Rows already moved are skipped, so prepare can be re-run at any point to resume.
+ * verify:  checks one mined batch: sent from a file with this allocation's hash and the nonce it
+ *          pins, every delegator moved exactly its stake to the planned target, nothing left on the
+ *          source, no DelegationForceMigrationFailed, validator totals moved by the same amount, and
+ *          still no bid on either validator. On mainnet it only reports verified once the Heimdall
+ *          gate for both validators is green; until then it exits with code 2. Run it before the next batch.
  * status:  progress over the whole allocation, and the final check (nothing left on the sources).
  *
- * The contract does not stop a migration out of an active validator, so prepare refuses unless
- * every source is already force-unstaked (isValidator false, deactivationEpoch set and reached).
+ * prepare refuses unless:
+ *   - every source is already force-unstaked (isValidator false, deactivationEpoch set and reached):
+ *     the contract itself does not stop a migration out of an active validator;
+ *   - the implementation has the reviewed codehash (MAINNET.REVIEWED_IMPL_CODEHASH);
+ *   - auctions are stopped and no source or target has a bid;
+ *   - StakeManager's BONE covers every queued exit, the rewards these moves pay, and MIN_MARGIN_BONE;
+ *   - on mainnet, the Heimdall gate is green for every source and target.
  *
  * Run:
- *   node scripts/migration/3_migrateDelegations.js prepare --codehash <pinned> [--pilot] [--batch-size 50]
- *   node scripts/migration/3_migrateDelegations.js verify --tx <hash>
+ *   node scripts/migration/3_migrateDelegations.js prepare [--pilot] [--batch-size 50]
+ *   node scripts/migration/3_migrateDelegations.js verify --tx <hash> [--file <calldata file>]
  *   node scripts/migration/3_migrateDelegations.js status
  *
- * Options: --allocation <path> (default scripts/migration/allocation.json), --fork
+ * Options: --allocation <path> (default scripts/migration/allocation.json), --fork,
+ *          and on a fork only: --codehash <hash>, --allocation-hash <hash>
  * Env: ALLOW_DRIFT=1 to accept on-chain stakes that differ from the allocation,
- *      MIN_MARGIN_BONE (default 50000) BONE StakeManager must hold beyond the rewards to be paid.
+ *      MIN_MARGIN_BONE (default 50000) BONE StakeManager must hold beyond what it owes.
  */
 
 const fs = require("fs");
@@ -80,15 +88,19 @@ async function prepare(ctx, args) {
   const b = ctx.blockTag;
 
   console.log("\n── Pre-checks ──────────────────────────────────────────────────");
+  const allocHash = lib.requireReviewedAllocation(ctx, args, alloc.rows);
   expectEq("StakeManager owner", await lib.crossCheck(ctx, "owner", (p, t) => lib.contracts(p).sm.owner({ blockTag: t })), MAINNET.ADMIN);
   const impl = await lib.crossCheck(ctx, "implementation", (p, t) => lib.contracts(p).sm.implementation({ blockTag: t }));
   if (impl.toLowerCase() === MAINNET.LIVE_IMPL.toLowerCase()) throw new Error("StakeManager is still on the pre-migration implementation; upgrade first (2)");
-  const codehash = ethers.keccak256(await ctx.provider.getCode(impl, b));
-  if (args.codehash) expectEq("implementation codehash", codehash, args.codehash);
-  else if (!ctx.fork) throw new Error("Pass --codehash <runtime codehash pinned at review>");
-  else console.log(`  · implementation ${impl}, codehash ${codehash} (not pinned: fork run)`);
+  const codehash = await lib.crossCheck(ctx, "implementation codehash", async (p, t) => ethers.keccak256(await p.getCode(impl, t)));
+  expectEq("implementation codehash", codehash, lib.expectedImplCodehash(ctx, args));
   expectEq("delegation enabled", await lib.crossCheck(ctx, "delegationEnabled", (p, t) => lib.contracts(p).sm.delegationEnabled({ blockTag: t })), true);
   await checkValidators(ctx, sources, targets);
+  await lib.requireNoBids(ctx, [...sources, ...targets]);
+  if (!ctx.fork) {
+    const gate = await lib.heimdallGate(ctx, [...sources, ...targets]);
+    if (gate.ok !== true) throw new Error("The Heimdall gate is not green for the validators this run touches; wait for Heimdall to catch up, then re-run prepare");
+  }
 
   const { sm } = lib.contracts(ctx.provider);
   const shares = {};
@@ -133,10 +145,8 @@ async function prepare(ctx, args) {
 
   const pending = [...by("pending"), ...drift];
   const rewards = pending.reduce((s, p) => s + p.rewards, 0n);
-  const balance = await lib.crossCheck(ctx, "StakeManager BONE balance", (p, t) => lib.contracts(p).bone.balanceOf(SM, { blockTag: t }));
-  const margin = ethers.parseUnits(process.env.MIN_MARGIN_BONE || "50000", 18);
-  console.log(`\nStakeManager BONE ${fmt(balance)}; rewards these moves pay out ${fmt(rewards)}; required margin ${fmt(margin)}`);
-  if (balance < rewards + margin) throw new Error(`StakeManager holds ${fmt(balance)} BONE, needs at least ${fmt(rewards + margin)}; refill it first`);
+  console.log("");
+  await lib.requireBoneCover(ctx, rewards, "rewards these moves pay");
 
   let batches;
   if (args.pilot) {
@@ -170,27 +180,38 @@ async function prepare(ctx, args) {
     const sum = batch.reduce((s, p) => s + p.stake, 0n);
     const name = `${args.pilot ? "pilot" : "migrate"}-${String(i + 1).padStart(2, "0")}-of-${batches.length}-from${from}-to${to}`;
     files.push(
-      await lib.writeCalldata(ctx, name, tx, `StakeManager.forceMigrateMultipleDelegations(${from}, ${to}, [${addresses.length} delegators])`, {
-        batch: i + 1,
-        of: batches.length,
-        fromValidatorId: from,
-        toValidatorId: to,
-        expectedSumWei: sum,
-        delegators: batch.map((p) => ({ address: p.address, stakeWei: p.stake })),
-      })
+      await lib.writeCalldata(
+        ctx,
+        name,
+        tx,
+        `StakeManager.forceMigrateMultipleDelegations(${from}, ${to}, [${addresses.length} delegators])`,
+        {
+          allocationHash: allocHash,
+          batch: i + 1,
+          of: batches.length,
+          fromValidatorId: from,
+          toValidatorId: to,
+          expectedSumWei: sum,
+          delegators: batch.map((p) => ({ address: p.address, stakeWei: p.stake })),
+        },
+        { expiry: "session" }
+      )
     );
     console.log(`  batch ${i + 1}/${batches.length}: ${from} → ${to}, ${addresses.length} delegators, ${fmt(sum)} BONE, gas ${tx.gasLimit}`);
   }
-  console.log("\nSend one batch at a time. After each: node scripts/migration/3_migrateDelegations.js verify --tx <hash>" + (ctx.fork ? " --fork" : ""));
-  console.log("Stop on any failure, DelegationForceMigrationFailed event or \"Out of gas\".");
+  console.log(`\nThe ${files.length} file(s) pin consecutive nonces: send them in order, one at a time. After each:`);
+  console.log("  node scripts/migration/3_migrateDelegations.js verify --tx <hash>" + (ctx.fork ? " --fork" : ""));
+  console.log("Stop on any failure, DelegationForceMigrationFailed event or \"Out of gas\". If any other admin");
+  console.log("transaction goes in between, or a file expires, discard the rest and re-run prepare.");
 }
 
 async function verify(ctx, args) {
   if (!args.tx) throw new Error("Pass --tx <hash>");
-  const alloc = fs.existsSync(args.allocation || DEFAULT_ALLOCATION) ? loadAllocation(args) : null;
+  const alloc = loadAllocation(args);
+  const allocHash = lib.requireReviewedAllocation(ctx, args, alloc.rows);
   let mined;
   try {
-    mined = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: SM });
+    mined = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: SM, file: args.file });
   } catch (e) {
     if (/Out of gas/.test(e.message)) {
       console.error("\nThe batch reverted with \"Out of gas\": the contract reports any revert with EMPTY data that way,");
@@ -198,13 +219,15 @@ async function verify(ctx, args) {
     }
     throw e;
   }
-  const { tx, receipt, block, before } = mined;
+  const { tx, receipt, record, block, before } = mined;
+  expectEq("allocation hash in the calldata file", record.allocationHash, allocHash);
   const call = IFACE.stakeManager.parseTransaction({ data: tx.data });
   if (!call || !call.name.startsWith("forceMigrate")) throw new Error("That transaction is not a force migration");
   const from = Number(call.args[0]);
   const to = Number(call.args[1]);
   const delegators = call.name === "forceMigrateMultipleDelegations" ? [...call.args[2]] : [call.args[2]];
   console.log(`\n── Verify batch: ${from} → ${to}, ${delegators.length} delegators ───────────────────`);
+  await lib.requireNoBids({ ...ctx, blockTag: block }, [from, to]);
 
   const events = lib.parseLogs(receipt, IFACE.stakeManager, SM);
   const moved = new Map(events.filter((e) => e.name === "DelegationForceMigrated").map((e) => [e.args.delegator.toLowerCase(), e.args.amount]));
@@ -214,7 +237,7 @@ async function verify(ctx, args) {
   const { sm, bone } = lib.contracts(ctx.provider);
   const fromShare = await shareOf(sm, from, before);
   const toShare = await shareOf(sm, to, before);
-  const planned = new Map((alloc?.rows || []).filter((r) => r.from === from).map((r) => [r.address.toLowerCase(), r]));
+  const planned = new Map(alloc.rows.filter((r) => r.from === from).map((r) => [r.address.toLowerCase(), r]));
 
   const problems = [];
   let sum = 0n;
@@ -228,7 +251,7 @@ async function verify(ctx, args) {
     ]);
     const amount = moved.get(key);
     const row = planned.get(key);
-    if (alloc && !row) problems.push(`${d} is not in the allocation for validator ${from}`);
+    if (!row) problems.push(`${d} is not in the allocation for validator ${from}`);
     if (row && row.to !== to) problems.push(`${d} was planned for validator ${row.to}, sent to ${to}`);
     if (amount === undefined) {
       // the contract emits nothing for zero stake, so a missing event is only fine if there was nothing to move
@@ -268,12 +291,12 @@ async function verify(ctx, args) {
   }
   console.log("  ✓ every delegator moved exactly its stake to the planned target, nothing left on the source");
 
-  const gate = await lib.heimdallGate(ctx, [from, to]);
-  console.log(gate.ok === false ? "\nL1 verified; wait for the Heimdall gate before the next batch." : "\n✅ Batch verified.");
+  await lib.finishVerify(ctx, [from, to], `Batch ${record.batch}/${record.of} (${from} → ${to})`);
 }
 
 async function status(ctx, args) {
   const alloc = loadAllocation(args);
+  console.log(`Allocation hash ${lib.allocationHash(alloc.rows)} (reviewed: ${MAINNET.REVIEWED_ALLOCATION_HASH || "not set"})`);
   const json = alloc.file.endsWith(".json") ? JSON.parse(fs.readFileSync(alloc.file, "utf8")) : null;
   const { sm } = lib.contracts(ctx.provider);
   const b = ctx.blockTag;

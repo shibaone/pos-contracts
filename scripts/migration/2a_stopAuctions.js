@@ -9,7 +9,7 @@
  *
  * Run:
  *   node scripts/migration/2a_stopAuctions.js prepare [--checkpoints 1000000000]
- *   node scripts/migration/2a_stopAuctions.js verify --tx <hash>
+ *   node scripts/migration/2a_stopAuctions.js verify --tx <hash> [--file <calldata file>]
  *
  * Add --fork to run against the local fork (FORK_RPC_URL).
  */
@@ -38,7 +38,7 @@ async function prepare(ctx, args) {
 
 async function verify(ctx, args) {
   if (!args.tx) throw new Error("Pass --tx <hash>");
-  const { tx, block } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY });
+  const { tx, block } = await lib.loadMinedTx(ctx, args.tx, { from: MAINNET.ADMIN, to: MAINNET.GOVERNANCE_PROXY, file: args.file });
   const outer = IFACE.governance.parseTransaction({ data: tx.data });
   const inner = IFACE.stakeManager.parseTransaction({ data: outer.args.data });
   if (inner?.name !== "stopAuctions") throw new Error("That transaction is not Governance.update(StakeManager, stopAuctions(n))");

@@ -1,9 +1,10 @@
 /**
  * Fork only: send calldata files written by the prepare steps, as their signer, on a local fork.
  *
- * This is how a rehearsal runs exactly the transactions the hardware wallet will sign. It refuses
- * to talk to anything but a local anvil or hardhat node. Each mined hash is printed; check it with
- * the matching `verify --tx <hash> --fork` before sending the next file.
+ * This is how a rehearsal runs exactly the transactions the hardware wallet will sign, with the
+ * nonce each file pins. It refuses to talk to anything but a local anvil or hardhat node, and
+ * refuses a file that is expired or not next in nonce order, as the signer must. Each mined hash
+ * is printed; check it with the matching `verify --tx <hash> --fork` before sending the next file.
  *
  * Run:
  *   node scripts/migration/forkExecute.js scripts/migration/out/<file>.json [more files...]
@@ -22,10 +23,14 @@ async function main() {
 
   for (const file of files) {
     const tx = JSON.parse(fs.readFileSync(file, "utf8"));
+    if (!tx.fork || tx.nonce === undefined) throw new Error(`${file} is not a fork calldata file with a pinned nonce; re-run its prepare with --fork`);
+    const [head, nonce] = await Promise.all([ctx.provider.getBlockNumber(), ctx.provider.getTransactionCount(tx.from, "latest")]);
+    if (head >= tx.expiresAtBlock) throw new Error(`${file} expired at block ${tx.expiresAtBlock} (fork is at ${head}); re-run prepare`);
+    if (nonce !== tx.nonce) throw new Error(`${file} pins nonce ${tx.nonce}, ${tx.from} is at ${nonce}: send the files in order, or re-run prepare`);
     await ctx.provider.send(`${method}_impersonateAccount`, [tx.from]);
     await ctx.provider.send(`${method}_setBalance`, [tx.from, ethers.toQuantity(ethers.parseEther("10"))]);
     const signer = new ethers.JsonRpcSigner(ctx.provider, tx.from);
-    const sent = await signer.sendTransaction({ to: tx.to, data: tx.data, value: 0, gasLimit: BigInt(tx.gasLimit) });
+    const sent = await signer.sendTransaction({ to: tx.to, data: tx.data, value: 0, gasLimit: BigInt(tx.gasLimit), nonce: tx.nonce });
     const receipt = await sent.wait();
     console.log(`${receipt.status === 1 ? "mined   " : "REVERTED"} ${sent.hash}  gas ${receipt.gasUsed}  ${tx.decoded}  (${file})`);
     if (receipt.status !== 1) process.exitCode = 1;

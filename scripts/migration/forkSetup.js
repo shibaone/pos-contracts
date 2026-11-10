@@ -35,13 +35,15 @@ async function main() {
   const f = "--fork";
   const x = "node scripts/migration/forkExecute.js scripts/migration/out/<file>.json";
   console.log(`
-Rehearsal sequence (after each forkExecute, run the step's verify with the printed hash and ${f}):
+Rehearsal sequence (after each forkExecute, run the step's verify with the printed hash and ${f}).
+Files pin the admin nonce: send them in the order they were written, and re-run prepare if one is refused.
   1. npx hardhat run scripts/migration/1_deployStakeManager.js --network localhost
-  2. node scripts/migration/2_upgradeProxy.js prepare --impl <impl> --codehash <codehash> ${f}      then ${x}
+  2. node scripts/migration/2_upgradeProxy.js prepare --impl <impl> ${f}                            then ${x}
   3. node scripts/migration/2a_stopAuctions.js prepare ${f}                                         then ${x}
   4. node scripts/migration/2b_forceUnstakeValidator.js prepare --validator <id> --impl <impl> ${f} (each source) then ${x}
-  5. node scripts/migration/0b_buildAllocation.js --from ${from.join(",") || "<ids>"} --to ${to.join(",") || "<ids>"} --block <fork block>   (on mainnet: same rows as the fork)
+  5. node scripts/migration/0b_buildAllocation.js --from ${from.join(",") || "<ids>"} --to ${to.join(",") || "<ids>"} --block <fork block>   (reads mainnet at the fork block: same rows as the fork)
   6. node scripts/migration/3_migrateDelegations.js prepare --pilot ${f}, then prepare ${f}         then ${x} per batch
+     (add --allocation-hash <hash printed by step 5> to rehearse the freeze as well)
   7. node scripts/migration/3_migrateDelegations.js status ${f}
   8. node scripts/migration/2_upgradeProxy.js prepare --rollback ${f}                               then ${x}`);
 }
