@@ -158,9 +158,42 @@ function errorText(e) {
 
 // ── providers ─────────────────────────────────────────────────────────────────
 
+// methods that change state are never retried, so a flaky connection cannot send anything twice
+const NO_RETRY = new Set(["eth_sendTransaction", "eth_sendRawTransaction", "anvil_impersonateAccount", "anvil_setBalance", "hardhat_impersonateAccount", "hardhat_setBalance"]);
+const TRANSPORT_ERROR = /TIMEOUT|ETIMEDOUT|ECONNRESET|ECONNREFUSED|EAI_AGAIN|socket hang up|502|503|504|429|rate limit/i;
+// upstream failures that come back as a JSON-RPC error rather than a thrown one: a fork that could
+// not fetch state, or a rate-limited provider. ethers reports any eth_call error as "missing revert
+// data", so without this a flaky fork looks like a revert. Limits that never pass are not retried.
+const UPSTREAM_ERROR = /Fork Error|Transport|HttpError|backend|timed? ?out|rate limit|too many requests|429|502|503|504/i;
+const PERMANENT_ERROR = /not supported|block range|ranges? over|too large|response size/i;
+
+class RetryingProvider extends ethers.JsonRpcProvider {
+  async _send(payload) {
+    const methods = (Array.isArray(payload) ? payload : [payload]).map((p) => p.method);
+    const retryable = methods.every((m) => !NO_RETRY.has(m));
+    const wait = (attempt) => new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+    for (let attempt = 0; ; attempt++) {
+      let results;
+      try {
+        results = await super._send(payload);
+      } catch (e) {
+        if (!retryable || attempt >= 5 || !TRANSPORT_ERROR.test(`${e.code} ${e.message}`)) throw e;
+        await wait(attempt);
+        continue;
+      }
+      const upstream = results.some((r) => {
+        const text = `${r.error?.code} ${r.error?.message}`;
+        return r.error && UPSTREAM_ERROR.test(text) && !PERMANENT_ERROR.test(text);
+      });
+      if (!upstream || !retryable || attempt >= 5) return results;
+      await wait(attempt);
+    }
+  }
+}
+
 function makeProvider(url) {
   // batching off: free RPC tiers reject large JSON-RPC batches
-  return new ethers.JsonRpcProvider(url, undefined, { batchMaxCount: 1, cacheTimeout: -1 });
+  return new RetryingProvider(url, undefined, { batchMaxCount: 1, cacheTimeout: -1 });
 }
 
 /**
